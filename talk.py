@@ -382,7 +382,7 @@ def main():
     html(CHAT_WIDGET_HTML, height=700)
 
 if __name__ == "__main__":
-     try:
+    try:
         logger.info("Démarrage de l'application")
         main()
         logger.info("Application démarrée avec succès")
