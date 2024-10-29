@@ -63,8 +63,9 @@ def get_chat_response(message: str) -> str:
             temperature=0.7,
             max_tokens=500
         )
+        result = response.choices[0].message.content
         logger.info("Réponse reçue d'OpenAI avec succès")
-        return response.choices[0].message.content
+        return result
     except Exception as e:
         logger.error(f"Erreur lors de l'appel OpenAI: {str(e)}")
         return f"Erreur: {str(e)}"
@@ -335,7 +336,7 @@ CHAT_WIDGET_HTML = """
                 if (this.isWaitingResponse || !this.input.value.trim()) return;
 
                 const userMessage = this.input.value.trim();
-                console.log("Message envoyé:", userMessage); // Debug côté client
+                console.log("Message envoyé:", userMessage);
 
                 this.addMessage(userMessage, 'user');
                 this.input.value = '';
@@ -344,23 +345,42 @@ CHAT_WIDGET_HTML = """
                 const indicator = this.showTypingIndicator();
 
                 try {
-                    console.log("Envoi de la requête à Streamlit"); // Debug côté client
-                    const response = await fetch(`?message=${encodeURIComponent(userMessage)}`, {
+                    console.log("Envoi de la requête à Streamlit");
+        
+                    // Créer l'URL avec les paramètres de requête
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('message', userMessage);
+        
+                    const response = await fetch(url.toString(), {
                         method: 'GET',
                         headers: {
                             'Accept': 'application/json'
                         }
                     });
-
-                    console.log("Status de la réponse:", response.status); // Debug côté client
-
-                    if (!response.ok) throw new Error('Erreur réseau');
-
-                    const data = await response.json();
-                    console.log("Réponse reçue:", data); // Debug côté client
-                    this.addMessage(data.response, 'bot');
+            
+                    console.log("Status de la réponse:", response.status);
+            
+                    if (!response.ok) {
+                        throw new Error('Erreur réseau');
+                    }
+            
+                    const text = await response.text();
+                    console.log("Réponse brute:", text);  // Debug
+        
+                    try {
+                        const data = JSON.parse(text);
+                        console.log("Réponse parsée:", data);
+                        if (data.response) {
+                            this.addMessage(data.response, 'bot');
+                        } else {
+                            throw new Error('Réponse invalide');
+                        }
+                    } catch (parseError) {
+                        console.error("Erreur de parsing:", parseError);
+                        throw parseError;
+                    }
                 } catch (error) {
-                    console.error("Erreur:", error); // Debug côté client
+                    console.error("Erreur:", error);
                     this.addMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer.", 'bot');
                 } finally {
                     indicator.remove();
@@ -381,13 +401,14 @@ def main():
     logger.info("Démarrage de la fonction main()")
     
     # Gérer les messages entrants
-    if "message" in st.query_params:
-        message = st.query_params["message"]
+    params = st.experimental_get_query_params()
+    if "message" in params:
+        message = params["message"][0]
         logger.info(f"Message reçu dans les query params: {message[:50]}...")
         response = get_chat_response(message)
         logger.info(f"Réponse générée: {response[:50]}...")
-        st.json({"response": response})
-        logger.info("Réponse JSON envoyée")
+        # Wrapper la réponse dans un composant Streamlit
+        st.write({"response": response})
         return
 
     logger.info("Affichage du widget HTML")
