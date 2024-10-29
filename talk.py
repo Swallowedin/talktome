@@ -1,25 +1,13 @@
+```python
 import streamlit as st
-from streamlit.components.v1 import html
 import openai
 import json
-import logging
-
-# Configuration des logs
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 # Configuration de la page
-st.set_page_config(
-    page_title="Assistant",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Assistant", layout="wide", initial_sidebar_state="collapsed")
 
-# Log de démarrage
-logger.info("Application démarrée")
-
-# Masquer les éléments de l'interface Streamlit
-hide_streamlit_style = """
+# Masquer les éléments Streamlit par défaut
+st.markdown("""
 <style>
     #root > div:first-child {
         background-color: transparent;
@@ -33,27 +21,18 @@ hide_streamlit_style = """
     .stDeployButton {display: none !important;}
     footer {display: none !important;}
 </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# Vérification de la clé API
+# Vérification de la clé API OpenAI
 if 'OPENAI_API_KEY' not in st.secrets:
-    logger.error("Clé API OpenAI non trouvée dans les secrets")
     st.error('⚠️ OPENAI_API_KEY non configurée')
     st.stop()
-else:
-    logger.info("Clé API OpenAI trouvée dans les secrets")
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# États de session pour le chat
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-def get_chat_response(message: str) -> str:
-    logger.info(f"Nouvelle demande de chat reçue: {message[:50]}...")
+# Fonction pour obtenir une réponse d'OpenAI
+def get_openai_response(message: str) -> dict:
     try:
-        logger.debug("Tentative d'appel à OpenAI")
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -63,14 +42,11 @@ def get_chat_response(message: str) -> str:
             temperature=0.7,
             max_tokens=500
         )
-        result = response.choices[0].message.content
-        logger.info("Réponse reçue d'OpenAI avec succès")
-        return result
+        return {"status": "success", "response": response.choices[0].message.content}
     except Exception as e:
-        logger.error(f"Erreur lors de l'appel OpenAI: {str(e)}")
-        return f"Erreur: {str(e)}"
+        return {"status": "error", "message": str(e)}
 
-# HTML complet du widget avec style intégré
+# HTML du widget
 CHAT_WIDGET_HTML = """
 <!DOCTYPE html>
 <html lang="fr">
@@ -78,7 +54,6 @@ CHAT_WIDGET_HTML = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* Variables de couleurs basées sur le logo */
         :root {
             --main-color: #1B4D4D;
             --light-color: #235f5f;
@@ -336,8 +311,6 @@ CHAT_WIDGET_HTML = """
                 if (this.isWaitingResponse || !this.input.value.trim()) return;
 
                 const userMessage = this.input.value.trim();
-                console.log("Message envoyé:", userMessage);
-
                 this.addMessage(userMessage, 'user');
                 this.input.value = '';
                 this.isWaitingResponse = true;
@@ -345,35 +318,21 @@ CHAT_WIDGET_HTML = """
                 const indicator = this.showTypingIndicator();
 
                 try {
-                    console.log("Envoi de la requête à Streamlit");
-        
-                    // Utiliser l'URL réelle de la page
-                    const baseUrl = window.top.location.href;
-                    const url = new URL(baseUrl);
-                    url.searchParams.set('message', userMessage);
-        
-                    const response = await fetch(url.toString(), {
-                        method: 'GET',
+                    const response = await fetch('_stcore/stream', {
+                        method: 'POST',
                         headers: {
-                            'Accept': 'application/json'
-                        }
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ message: userMessage })
                     });
 
-                    console.log("Status de la réponse:", response.status);
-        
-                    if (!response.ok) throw new Error('Erreur réseau');
-
-                    const text = await response.text();
-                    console.log("Réponse brute:", text);
-
-                    const data = JSON.parse(text);
-                    console.log("Réponse parsée:", data);
-        
-                    if (data.response) {
-                        this.addMessage(data.response, 'bot');
+                    const data = await response.json();
+                    if (data.status === 'error') {
+                        throw new Error(data.message);
                     }
+                    this.addMessage(data.response, 'bot');
                 } catch (error) {
-                    console.error("Erreur:", error);
+                    console.error('Error:', error);
                     this.addMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer.", 'bot');
                 } finally {
                     indicator.remove();
@@ -391,26 +350,16 @@ CHAT_WIDGET_HTML = """
 """
 
 def main():
-    logger.info("Démarrage de la fonction main()")
-    
-    # Gérer les messages entrants
-    if "message" in st.query_params:
-        message = st.query_params["message"]
-        logger.info(f"Message reçu: {message}")
-        response = get_chat_response(message)
-        response_data = {"response": response}
-        logger.info(f"Envoi de la réponse JSON: {response_data}")  # Log ce qu'on envoie
-        st.json(response_data)  # Utiliser st.json uniquement
+    # Gérer les messages de chat
+    if 'message' in st.experimental_get_query_params():
+        message = st.experimental_get_query_params()['message'][0]
+        response = get_openai_response(message)
+        st.json(response)
         return
 
-    logger.info("Affichage du widget HTML")
-    html(CHAT_WIDGET_HTML, height=700)
+    # Afficher le widget
+    st.components.v1.html(CHAT_WIDGET_HTML, height=700)
 
 if __name__ == "__main__":
-    try:
-        logger.info("Démarrage de l'application")
-        main()
-        logger.info("Application démarrée avec succès")
-    except Exception as e:
-        logger.error(f"Erreur lors du démarrage de l'application: {str(e)}")
-        st.error("Une erreur est survenue lors du démarrage de l'application")
+    main()
+```
