@@ -347,38 +347,30 @@ CHAT_WIDGET_HTML = """
                 try {
                     console.log("Envoi de la requête à Streamlit");
         
-                    // Utiliser window.location.href pour l'URL complète
-                    const url = new URL(window.location.href);
+                    // Utiliser l'URL réelle de la page
+                    const baseUrl = window.top.location.href;
+                    const url = new URL(baseUrl);
                     url.searchParams.set('message', userMessage);
         
                     const response = await fetch(url.toString(), {
                         method: 'GET',
                         headers: {
-                            'Accept': 'application/json',
-                            'Cache-Control': 'no-cache'
+                            'Accept': 'application/json'
                         }
                     });
 
                     console.log("Status de la réponse:", response.status);
-
-                    if (!response.ok) {
-                        throw new Error('Erreur réseau');
-                    }
+        
+                    if (!response.ok) throw new Error('Erreur réseau');
 
                     const text = await response.text();
-                    console.log("Réponse brute reçue:", text);  // Debug
+                    console.log("Réponse brute:", text);
 
-                    try {
-                        const data = JSON.parse(text);
-                        console.log("Données parsées:", data);
-                        if (data.response) {
-                            this.addMessage(data.response, 'bot');
-                        } else {
-                            throw new Error('Format de réponse invalide');
-                        }
-                    } catch (parseError) {
-                        console.error("Erreur de parsing JSON:", parseError);
-                        throw parseError;
+                    const data = JSON.parse(text);
+                    console.log("Réponse parsée:", data);
+        
+                    if (data.response) {
+                        this.addMessage(data.response, 'bot');
                     }
                 } catch (error) {
                     console.error("Erreur:", error);
