@@ -351,9 +351,8 @@ CHAT_WIDGET_HTML = """
 
 def main():
     # Gérer les messages entrants
-    query_params = st.experimental_get_query_params()
-    if "message" in query_params:
-        message = query_params["message"][0]
+    if "message" in st.query_params:  # Nouveau style
+        message = st.query_params["message"]
         response = get_chat_response(message)
         st.json({"response": response})
         return
