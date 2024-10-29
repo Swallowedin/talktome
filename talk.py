@@ -1,4 +1,4 @@
-```python
+python
 import streamlit as st
 import openai
 import json
@@ -362,4 +362,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
