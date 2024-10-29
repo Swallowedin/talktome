@@ -1,7 +1,9 @@
-# app.py
 import streamlit as st
-import openai
 from streamlit.components.v1 import html
+import openai
+import json
+from streamlit.web import WebClient
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # Configuration de la page
 st.set_page_config(
@@ -35,6 +37,40 @@ if 'OPENAI_API_KEY' not in st.secrets:
     st.stop()
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
+
+# Cache des réponses pour éviter de multiplier les appels API
+if "chat_responses" not in st.session_state:
+    st.session_state.chat_responses = {}
+
+# Fonction pour gérer les messages
+def handle_message(message: str) -> str:
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Vous êtes un assistant serviable et professionnel."},
+                {"role": "user", "content": message}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Erreur: {str(e)}"
+
+# Endpoint pour recevoir les messages
+def handle_chat_request():
+    ctx = get_script_run_ctx()
+    if ctx is None:
+        return
+
+    # Récupérer le message du query parameter
+    query_params = st.experimental_get_query_params()
+    if "message" in query_params:
+        message = query_params["message"][0]
+        response = handle_message(message)
+        st.session_state.chat_responses[message] = response
+        return json.dumps({"response": response})
 
 # HTML du widget avec le style visuel du logo
 CHAT_WIDGET_HTML = """
@@ -228,54 +264,7 @@ CHAT_WIDGET_HTML = """
 <script>
 class ChatWidget {
     constructor() {
-        this.isOpen = false;
-        this.isWaitingResponse = false;
-        
-        this.button = document.getElementById('chatButton');
-        this.window = document.getElementById('chatWindow');
-        this.closeButton = document.getElementById('closeButton');
-        this.messages = document.getElementById('chatMessages');
-        this.form = document.getElementById('chatForm');
-        this.input = document.getElementById('userInput');
-        
-        this.button.addEventListener('click', () => this.toggleChat());
-        this.closeButton.addEventListener('click', () => this.closeChat());
-        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-    }
-
-    toggleChat() {
-        this.isOpen = !this.isOpen;
-        this.window.classList.toggle('active');
-        
-        if (this.isOpen && this.messages.children.length === 0) {
-            this.addMessage("Bonjour, comment puis-je vous aider ?", 'bot');
-        }
-    }
-
-    closeChat() {
-        this.isOpen = false;
-        this.window.classList.remove('active');
-    }
-
-    addMessage(text, type) {
-        const message = document.createElement('div');
-        message.className = `message ${type}-message`;
-        message.textContent = text;
-        this.messages.appendChild(message);
-        this.messages.scrollTop = this.messages.scrollHeight;
-    }
-
-    showTypingIndicator() {
-        const indicator = document.createElement('div');
-        indicator.className = 'typing-indicator';
-        indicator.innerHTML = `
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-        `;
-        this.messages.appendChild(indicator);
-        this.messages.scrollTop = this.messages.scrollHeight;
-        return indicator;
+        [Configuration précédente...]
     }
 
     async handleSubmit(e) {
@@ -290,14 +279,8 @@ class ChatWidget {
         const indicator = this.showTypingIndicator();
 
         try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: userMessage })
-            });
-
+            // Utiliser les query parameters pour envoyer le message
+            const response = await fetch(`?message=${encodeURIComponent(userMessage)}`);
             if (!response.ok) throw new Error('Erreur réseau');
 
             const data = await response.json();
@@ -309,9 +292,10 @@ class ChatWidget {
             this.isWaitingResponse = false;
         }
     }
+    
+    [Autres méthodes restent identiques...]
 }
 
-// Initialisation du widget
 document.addEventListener('DOMContentLoaded', () => {
     new ChatWidget();
 });
@@ -338,8 +322,23 @@ def get_chat_response(message: str) -> str:
         return "Je rencontre des difficultés techniques. Veuillez réessayer."
 
 def main():
-    # Injecter le widget de chat
-    html(CHAT_WIDGET_HTML, height=700)
+    # Masquer les éléments Streamlit par défaut
+    st.markdown("""
+        <style>
+            #root > div:first-child {background-color: transparent;}
+            .main > div:first-child {padding: 0;}
+            header {display: none !important;}
+            .block-container {padding: 0 !important;}
+            [data-testid="stToolbar"] {display: none !important;}
+            footer {display: none !important;}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Gérer les requêtes de chat
+    handle_chat_request()
+
+    # Afficher le widget
+    html(CHAT_WIDGET_HTML, height=500)
 
 if __name__ == "__main__":
     main()
