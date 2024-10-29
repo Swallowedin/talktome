@@ -335,6 +335,8 @@ CHAT_WIDGET_HTML = """
                 if (this.isWaitingResponse || !this.input.value.trim()) return;
 
                 const userMessage = this.input.value.trim();
+                console.log("Message envoyé:", userMessage); // Debug côté client
+
                 this.addMessage(userMessage, 'user');
                 this.input.value = '';
                 this.isWaitingResponse = true;
@@ -342,19 +344,29 @@ CHAT_WIDGET_HTML = """
                 const indicator = this.showTypingIndicator();
 
                 try {
-                    const response = await fetch(`?message=${encodeURIComponent(userMessage)}`);
+                    console.log("Envoi de la requête à Streamlit"); // Debug côté client
+                    const response = await fetch(`?message=${encodeURIComponent(userMessage)}`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    console.log("Status de la réponse:", response.status); // Debug côté client
+
                     if (!response.ok) throw new Error('Erreur réseau');
 
                     const data = await response.json();
+                    console.log("Réponse reçue:", data); // Debug côté client
                     this.addMessage(data.response, 'bot');
                 } catch (error) {
+                    console.error("Erreur:", error); // Debug côté client
                     this.addMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer.", 'bot');
                 } finally {
                     indicator.remove();
                     this.isWaitingResponse = false;
                 }
             }
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             new ChatWidget();
