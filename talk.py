@@ -348,8 +348,8 @@ CHAT_WIDGET_HTML = """
                     console.log("Envoi de la requête à Streamlit");
         
                     // Créer l'URL avec les paramètres de requête
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('message', userMessage);
+                    const baseUrl = window.parent.location.href.split('?')[0];
+                    const url = `${baseUrl}?message=${encodeURIComponent(userMessage)}`
         
                     const response = await fetch(url.toString(), {
                         method: 'GET',
