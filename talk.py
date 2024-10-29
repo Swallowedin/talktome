@@ -2,6 +2,11 @@ import streamlit as st
 from streamlit.components.v1 import html
 import openai
 import json
+import logging
+
+# Configuration des logs
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Configuration de la page
 st.set_page_config(
@@ -9,6 +14,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Log de démarrage
+logger.info("Application démarrée")
 
 # Masquer les éléments de l'interface Streamlit
 hide_streamlit_style = """
@@ -28,10 +36,13 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Configuration OpenAI
+# Vérification de la clé API
 if 'OPENAI_API_KEY' not in st.secrets:
+    logger.error("Clé API OpenAI non trouvée dans les secrets")
     st.error('⚠️ OPENAI_API_KEY non configurée')
     st.stop()
+else:
+    logger.info("Clé API OpenAI trouvée dans les secrets")
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
@@ -40,7 +51,9 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 def get_chat_response(message: str) -> str:
+    logger.info(f"Nouvelle demande de chat reçue: {message[:50]}...")
     try:
+        logger.debug("Tentative d'appel à OpenAI")
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -50,8 +63,10 @@ def get_chat_response(message: str) -> str:
             temperature=0.7,
             max_tokens=500
         )
+        logger.info("Réponse reçue d'OpenAI avec succès")
         return response.choices[0].message.content
     except Exception as e:
+        logger.error(f"Erreur lors de l'appel OpenAI: {str(e)}")
         return f"Erreur: {str(e)}"
 
 # HTML complet du widget avec style intégré
@@ -350,20 +365,28 @@ CHAT_WIDGET_HTML = """
 """
 
 def main():
-    # Debug pour vérifier les secrets
-    print("Clés disponibles dans st.secrets:", st.secrets.keys())
+    logger.info("Démarrage de la fonction main()")
     
     # Gérer les messages entrants
     if "message" in st.query_params:
         message = st.query_params["message"]
-        print(f"Message reçu: {message}")  # Debug
+        logger.info(f"Message reçu dans les query params: {message[:50]}...")
         response = get_chat_response(message)
-        print(f"Réponse: {response}")  # Debug
+        logger.info(f"Réponse générée: {response[:50]}...")
         st.json({"response": response})
+        logger.info("Réponse JSON envoyée")
         return
 
+    logger.info("Affichage du widget HTML")
     # Afficher le widget
     html(CHAT_WIDGET_HTML, height=700)
 
 if __name__ == "__main__":
+     try:
+        logger.info("Démarrage de l'application")
+        main()
+        logger.info("Application démarrée avec succès")
+    except Exception as e:
+        logger.error(f"Erreur lors du démarrage de l'application: {str(e)}")
+        st.error("Une erreur est survenue lors du démarrage de l'application")
     main()
