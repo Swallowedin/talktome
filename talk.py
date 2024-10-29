@@ -347,27 +347,38 @@ CHAT_WIDGET_HTML = """
                 try {
                     console.log("Envoi de la requête à Streamlit");
         
-                    // Créer l'URL avec les paramètres de requête
-                    const baseUrl = window.parent.location.href.split('?')[0];
-                    const url = `${baseUrl}?message=${encodeURIComponent(userMessage)}`
+                    // Utiliser window.location.href pour l'URL complète
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('message', userMessage);
         
-                    const response = await fetch(url, {
-                         method: 'GET',
-                          headers: {
-                            'Accept': 'application/json'
+                    const response = await fetch(url.toString(), {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
                         }
                     });
-            
+
                     console.log("Status de la réponse:", response.status);
-            
+
                     if (!response.ok) {
                         throw new Error('Erreur réseau');
                     }
-            
-                    const data = await response.json();
-                    console.log("Réponse reçue:", data);
-                    if (data.response) {
-                        this.addMessage(data.response, 'bot');
+
+                    const text = await response.text();
+                    console.log("Réponse brute reçue:", text);  // Debug
+
+                    try {
+                        const data = JSON.parse(text);
+                        console.log("Données parsées:", data);
+                        if (data.response) {
+                            this.addMessage(data.response, 'bot');
+                        } else {
+                            throw new Error('Format de réponse invalide');
+                        }
+                    } catch (parseError) {
+                        console.error("Erreur de parsing JSON:", parseError);
+                        throw parseError;
                     }
                 } catch (error) {
                     console.error("Erreur:", error);
@@ -397,8 +408,9 @@ def main():
         logger.info(f"Message reçu dans les query params: {message[:50]}...")
         response = get_chat_response(message)
         logger.info(f"Réponse générée: {response[:50]}...")
-        # Wrapper la réponse dans un composant Streamlit
-        st.write({"response": response})
+        # Retourner explicitement du JSON
+        st.json({"response": response})
+        logger.info("Réponse JSON envoyée")
         return
 
     logger.info("Affichage du widget HTML")
