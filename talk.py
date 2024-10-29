@@ -367,6 +367,7 @@ CHAT_WIDGET_HTML = """
                     this.isWaitingResponse = false;
                 }
             }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             new ChatWidget();
