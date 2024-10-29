@@ -394,19 +394,16 @@ def main():
     logger.info("Démarrage de la fonction main()")
     
     # Gérer les messages entrants
-    params = st.experimental_get_query_params()
-    if "message" in params:
-        message = params["message"][0]
-        logger.info(f"Message reçu dans les query params: {message[:50]}...")
+    if "message" in st.query_params:
+        message = st.query_params["message"]
+        logger.info(f"Message reçu: {message}")
         response = get_chat_response(message)
-        logger.info(f"Réponse générée: {response[:50]}...")
-        # Retourner explicitement du JSON
-        st.json({"response": response})
-        logger.info("Réponse JSON envoyée")
+        response_data = {"response": response}
+        logger.info(f"Envoi de la réponse JSON: {response_data}")  # Log ce qu'on envoie
+        st.json(response_data)  # Utiliser st.json uniquement
         return
 
     logger.info("Affichage du widget HTML")
-    # Afficher le widget
     html(CHAT_WIDGET_HTML, height=700)
 
 if __name__ == "__main__":
