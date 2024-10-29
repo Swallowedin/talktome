@@ -317,19 +317,23 @@ CHAT_WIDGET_HTML = """
                 const indicator = this.showTypingIndicator();
 
                 try {
-                    const response = await fetch('_stcore/stream', {
-                        method: 'POST',
+                    // Utiliser l'URL actuelle et ajouter le paramètre message
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('message', userMessage);
+        
+                    const response = await fetch(url.toString(), {
+                        method: 'GET',
                         headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ message: userMessage })
+                            'Accept': 'application/json',
+                        }
                     });
 
                     const data = await response.json();
-                    if (data.status === 'error') {
-                        throw new Error(data.message);
+                    if (data && data.response) {
+                        this.addMessage(data.response, 'bot');
+                    } else {
+                        throw new Error('Format de réponse invalide');
                     }
-                    this.addMessage(data.response, 'bot');
                 } catch (error) {
                     console.error('Error:', error);
                     this.addMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer.", 'bot');
@@ -350,10 +354,12 @@ CHAT_WIDGET_HTML = """
 
 def main():
     # Gérer les messages de chat
-    if 'message' in st.experimental_get_query_params():
-        message = st.experimental_get_query_params()['message'][0]
+    params = st.query_params
+    if "message" in params:
+        message = params["message"]
         response = get_openai_response(message)
         st.json(response)
+        st.stop()
         return
 
     # Afficher le widget
