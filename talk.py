@@ -350,10 +350,15 @@ CHAT_WIDGET_HTML = """
 """
 
 def main():
+    # Debug pour vérifier les secrets
+    print("Clés disponibles dans st.secrets:", st.secrets.keys())
+    
     # Gérer les messages entrants
-    if "message" in st.query_params:  # Nouveau style
+    if "message" in st.query_params:
         message = st.query_params["message"]
+        print(f"Message reçu: {message}")  # Debug
         response = get_chat_response(message)
+        print(f"Réponse: {response}")  # Debug
         st.json({"response": response})
         return
 
