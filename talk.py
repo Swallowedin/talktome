@@ -351,9 +351,9 @@ CHAT_WIDGET_HTML = """
                     const baseUrl = window.parent.location.href.split('?')[0];
                     const url = `${baseUrl}?message=${encodeURIComponent(userMessage)}`
         
-                    const response = await fetch(url.toString(), {
-                        method: 'GET',
-                        headers: {
+                    const response = await fetch(url, {
+                         method: 'GET',
+                          headers: {
                             'Accept': 'application/json'
                         }
                     });
@@ -364,20 +364,10 @@ CHAT_WIDGET_HTML = """
                         throw new Error('Erreur réseau');
                     }
             
-                    const text = await response.text();
-                    console.log("Réponse brute:", text);  // Debug
-        
-                    try {
-                        const data = JSON.parse(text);
-                        console.log("Réponse parsée:", data);
-                        if (data.response) {
-                            this.addMessage(data.response, 'bot');
-                        } else {
-                            throw new Error('Réponse invalide');
-                        }
-                    } catch (parseError) {
-                        console.error("Erreur de parsing:", parseError);
-                        throw parseError;
+                    const data = await response.json();
+                    console.log("Réponse reçue:", data);
+                    if (data.response) {
+                        this.addMessage(data.response, 'bot');
                     }
                 } catch (error) {
                     console.error("Erreur:", error);
