@@ -4,7 +4,30 @@ import openai
 from streamlit.components.v1 import html
 
 # Configuration de la page
-st.set_page_config(page_title="Assistant Juridique", layout="wide")
+st.set_page_config(
+    page_title="Assistant",
+    layout="wide",
+    initial_sidebar_state="collapsed"  # Cache la barre latérale par défaut
+)
+
+# Masquer les éléments de l'interface Streamlit par défaut
+hide_streamlit_style = """
+<style>
+    #root > div:first-child {
+        background-color: transparent;
+    }
+    .main > div:first-child {
+        padding: 0rem 0rem;
+    }
+    header {display: none !important;}
+    .block-container {padding: 0 !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+    footer {display: none !important;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 
 # Configuration des secrets
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -299,7 +322,7 @@ def get_chat_response(message: str) -> str:
     """Obtient une réponse de l'API OpenAI"""
     try:
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Vous êtes un assistant serviable et professionnel."},
                 {"role": "user", "content": message}
@@ -316,7 +339,7 @@ def get_chat_response(message: str) -> str:
 
 def main():
     # Injecter le widget de chat
-    html(CHAT_WIDGET_HTML, height=0)
+    html(CHAT_WIDGET_HTML, height=700)
 
 if __name__ == "__main__":
     main()
