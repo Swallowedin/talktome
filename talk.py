@@ -389,4 +389,3 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Erreur lors du démarrage de l'application: {str(e)}")
         st.error("Une erreur est survenue lors du démarrage de l'application")
-    main()
