@@ -36,7 +36,7 @@ openai.api_key = st.secrets['OPENAI_API_KEY']
 def get_openai_response(message: str) -> dict:
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o-mini",  # Ne pas changer le modèle
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
                 {"role": "user", "content": message}
@@ -46,12 +46,13 @@ def get_openai_response(message: str) -> dict:
         )
         return {
             "status": "success",
-            "response": response.choices[0].message.content
+            "response": response['choices'][0]['message']['content']
         }
     except Exception as e:
         return {
             "status": "error",
-            "message": str(e)}
+            "message": str(e)
+        }
 
 def main():
     # Gérer les messages de chat
