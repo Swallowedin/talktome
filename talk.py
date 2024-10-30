@@ -32,7 +32,7 @@ openai.api_key = st.secrets['OPENAI_API_KEY']
 def get_openai_response(message: str) -> dict:
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini",  # Gardé le modèle original
             messages=[
                 {"role": "system", "content": "Vous êtes un assistant serviable et professionnel."},
                 {"role": "user", "content": message}
@@ -266,13 +266,6 @@ CHAT_WIDGET_HTML = """
                 this.button.addEventListener('click', () => this.toggleChat());
                 this.closeButton.addEventListener('click', () => this.closeChat());
                 this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-
-                this.baseUrl = this.getBaseUrl();
-            }
-
-            getBaseUrl() {
-                const parentUrl = window.parent.location.href;
-                return parentUrl.split('?')[0];
             }
 
             toggleChat() {
@@ -322,27 +315,27 @@ CHAT_WIDGET_HTML = """
                 const indicator = this.showTypingIndicator();
 
                 try {
-                    const url = new URL(this.baseUrl);
+                    const formData = new FormData();
+                    formData.append('message', userMessage);
+
+                    // Utiliser la même URL avec un paramètre pour indiquer une requête API
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('api', 'true');
                     url.searchParams.set('message', userMessage);
 
                     const response = await fetch(url.toString(), {
                         method: 'GET',
                         headers: {
-                            'Accept': 'application/json',
+                            'Accept': 'application/json'
                         }
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
                     const data = await response.json();
+                    
                     if (data.status === "success" && data.response) {
                         this.addMessage(data.response, 'bot');
                     } else if (data.status === "error") {
                         throw new Error(data.message);
-                    } else {
-                        throw new Error('Format de réponse invalide');
                     }
                 } catch (error) {
                     console.error('Error:', error);
@@ -365,10 +358,10 @@ CHAT_WIDGET_HTML = """
 def main():
     # Gérer les messages de chat
     params = st.query_params
-    if "message" in params:
+    if "api" in params and "message" in params:
         message = params["message"]
         response = get_openai_response(message)
-        st.json(response)
+        st.json(response)  # Utiliser st.json pour s'assurer que la réponse est en JSON
         return
 
     # Afficher le widget
