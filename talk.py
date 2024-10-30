@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 import json
-from streamlit.components.v1 import html
 
 # Configuration de la page
 st.set_page_config(
@@ -27,14 +26,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Configuration CORS
+# Headers CORS
 st.markdown("""
-    <script>
-        const meta = document.createElement('meta');
-        meta.setAttribute('http-equiv', 'Access-Control-Allow-Origin');
-        meta.setAttribute('content', '*');
-        document.head.appendChild(meta);
-    </script>
+<script>
+    if (window.top !== window.self) {
+        document.addEventListener('DOMContentLoaded', function() {
+            const headers = new Headers();
+            headers.append('Access-Control-Allow-Origin', '*');
+            headers.append('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            headers.append('Access-Control-Allow-Headers', 'Content-Type');
+        });
+    }
+</script>
 """, unsafe_allow_html=True)
 
 # Vérification de la clé API OpenAI
@@ -52,8 +55,8 @@ def get_openai_response(message: str) -> dict:
                 {
                     "role": "system",
                     "content": """Vous êtes l'assistant virtuel du cabinet VIEW Avocats. 
-                    Répondez de manière professionnelle et précise aux questions des utilisateurs.
-                    Vos réponses doivent être concises et factuelles."""
+                    Répondez de manière professionnelle et précise aux questions des utilisateurs,
+                    en vous basant uniquement sur des informations factuelles et juridiques vérifiées."""
                 },
                 {"role": "user", "content": message}
             ],
@@ -70,19 +73,19 @@ def get_openai_response(message: str) -> dict:
             "message": str(e)
         }
 
-def set_cors_headers():
-    st.write("""
+def add_cors_headers():
+    st.markdown("""
         <script>
-            const headers = new Headers();
-            headers.append('Access-Control-Allow-Origin', 'https://view-avocats.fr');
-            headers.append('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-            headers.append('Access-Control-Allow-Headers', 'Content-Type');
-            headers.append('Access-Control-Allow-Credentials', 'true');
+            const meta = document.createElement('meta');
+            meta.setAttribute('http-equiv', 'Access-Control-Allow-Origin');
+            meta.setAttribute('content', '*');
+            document.head.appendChild(meta);
         </script>
     """, unsafe_allow_html=True)
 
 def main():
-    set_cors_headers()
+    # Ajouter les headers CORS
+    add_cors_headers()
     
     # Gérer les messages de chat
     params = st.query_params
@@ -90,20 +93,12 @@ def main():
         message = params["message"]
         response = get_openai_response(message)
         
-        # Ajouter les headers CORS à la réponse
-        for header in [
-            ('Access-Control-Allow-Origin', 'https://view-avocats.fr'),
-            ('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'),
-            ('Access-Control-Allow-Headers', 'Content-Type'),
-            ('Access-Control-Allow-Credentials', 'true'),
-        ]:
-            st.response.headers[header[0]] = header[1]
-            
-        st.json(response)
+        # Renvoyer la réponse en JSON
+        st.write(response)
         return
 
-    # Page par défaut
-    st.write("Service de chat VIEW Avocats en ligne")
+    # Page par défaut quand aucun message n'est envoyé
+    st.write("Assistant VIEW Avocats - Service en ligne")
 
 if __name__ == "__main__":
     main()
