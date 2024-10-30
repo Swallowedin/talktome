@@ -4,7 +4,7 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 
-# Configuration de la page Streamlit
+# Configuration de la page
 st.set_page_config(
     page_title="Assistant VIEW Avocats",
     layout="wide",
@@ -49,7 +49,7 @@ openai.api_key = st.secrets['OPENAI_API_KEY']
 
 def get_openai_response(message: str) -> dict:
     try:
-        logger.info(f"Envoi du message à OpenAI: {message}")
+        logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -60,12 +60,13 @@ def get_openai_response(message: str) -> dict:
             max_tokens=500
         )
         logger.info("Réponse reçue de OpenAI.")
+        logger.debug(f"Réponse brute : {response}")
         return {
             "status": "success",
             "response": response['choices'][0]['message']['content']
         }
     except Exception as e:
-        logger.error(f"Erreur lors de l'appel à OpenAI: {str(e)}")
+        logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
         return {
             "status": "error",
             "message": str(e)
@@ -76,14 +77,14 @@ def main():
     params = st.query_params
     if "message" in params:
         message = params["message"]
-        logger.info(f"Message reçu du paramètre: {message}")
+        logger.info(f"Message reçu du paramètre : {message}")
         response = get_openai_response(message)
-        st.json(response)
+        st.json(response)  # Afficher la réponse sous format JSON
         return
 
     # Page par défaut
     st.write("Assistant VIEW Avocats")
-    logger.info("Affichage de la page d'accueil de l'assistant.")
+    logger.info("Affichage de la page d'accueil.")
 
 if __name__ == "__main__":
     main()
