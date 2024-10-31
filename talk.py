@@ -2,7 +2,6 @@ import streamlit as st
 import openai
 import logging
 from logging.handlers import RotatingFileHandler
-import time
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -28,40 +27,28 @@ if 'OPENAI_API_KEY' not in st.secrets:
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# Code HTML du widget
+# HTML original du widget
 CHAT_HTML = """
-<script>
-var lastMessageTime = 0;
-
-function sendMessage(message) {
-    const currentTime = Date.now();
-    if (currentTime - lastMessageTime < 1000) {
-        return new Promise(resolve => setTimeout(() => resolve(sendMessage(message)), 1000));
-    }
-    lastMessageTime = currentTime;
-
-    const element = window.parent.document.querySelector('#streamlit-widget');
-    const event = new CustomEvent('streamlit:message', {
-        detail: { message: message }
-    });
-    element.dispatchEvent(event);
-    return Promise.resolve();
-}
-
-window.sendMessage = sendMessage;
-</script>
-<div class="chat-widget">
+<div id="view-chat-widget" class="chat-widget">
     <style>
         .chat-widget {
-            width: 100%;
-            max-width: 800px;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 380px;
             height: 600px;
-            margin: 0 auto;
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
+            z-index: 9999;
+            transform: translateY(90%);
+            transition: transform 0.3s ease;
+        }
+
+        .chat-widget.open {
+            transform: translateY(0);
         }
 
         .chat-header {
@@ -69,10 +56,10 @@ window.sendMessage = sendMessage;
             background: #22c55e;
             color: white;
             border-radius: 10px 10px 0 0;
+            cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-weight: 500;
         }
 
         .chat-messages {
@@ -87,11 +74,10 @@ window.sendMessage = sendMessage;
 
         .message {
             max-width: 85%;
-            padding: 12px 16px;
+            padding: 10px 15px;
             border-radius: 15px;
             margin: 5px 0;
             word-wrap: break-word;
-            line-height: 1.5;
         }
 
         .message.user {
@@ -119,33 +105,27 @@ window.sendMessage = sendMessage;
 
         .chat-input input {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             border: 1px solid #e2e8f0;
             border-radius: 5px;
             outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .chat-input input:focus {
-            border-color: #22c55e;
         }
 
         .chat-input button {
-            padding: 12px 20px;
+            padding: 10px 20px;
             background: #22c55e;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            transition: background 0.2s;
             display: flex;
             align-items: center;
-            transition: background 0.2s;
-            font-weight: 500;
         }
 
         .chat-input button:after {
             content: '➤';
-            margin-left: 8px;
+            margin-left: 5px;
         }
 
         .chat-input button:hover {
@@ -161,7 +141,7 @@ window.sendMessage = sendMessage;
             display: none;
             align-self: flex-start;
             background: white;
-            padding: 12px 16px;
+            padding: 10px 15px;
             border-radius: 15px;
             color: #1a1a1a;
             margin: 5px 0;
@@ -172,70 +152,141 @@ window.sendMessage = sendMessage;
             display: block;
         }
 
-        .typing-dot {
-            display: inline-block;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background-color: #1a1a1a;
-            margin-right: 3px;
-            animation: typing 1s infinite;
+        @media (max-width: 480px) {
+            .chat-widget {
+                width: 100%;
+                height: 100vh;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+            }
         }
 
-        @keyframes typing {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
-        }
+        /* Masquer les éléments Streamlit */
+        header {display: none !important;}
+        .stDeployButton {display: none !important;}
+        footer {display: none !important;}
+        [data-testid="stToolbar"] {display: none !important;}
     </style>
+
     <div class="chat-header">
         <span>Assistant VIEW Avocats</span>
+        <button class="toggle-btn">▼</button>
     </div>
-    <div class="chat-messages" id="chat-messages"></div>
-    <div class="typing-indicator">
-        L'assistant répond
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-    </div>
+    <div class="chat-messages"></div>
+    <div class="typing-indicator">L'assistant répond...</div>
     <div class="chat-input">
-        <input type="text" placeholder="Posez votre question ici..." id="chat-input">
-        <button onclick="sendMessage(document.getElementById('chat-input').value)">Envoi</button>
+        <input type="text" placeholder="Posez votre question ici...">
+        <button type="submit">Envoi</button>
     </div>
 </div>
 
 <script>
-document.getElementById('chat-input').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        sendMessage(this.value);
-        this.value = '';
-    }
-});
+class ViewChatWidget {
+    constructor() {
+        this.widget = document.getElementById('view-chat-widget');
+        this.messagesContainer = this.widget.querySelector('.chat-messages');
+        this.input = this.widget.querySelector('input');
+        this.sendButton = this.widget.querySelector('button[type="submit"]');
+        this.toggleBtn = this.widget.querySelector('.toggle-btn');
+        this.typingIndicator = this.widget.querySelector('.typing-indicator');
+        this.isOpen = false;
 
-window.addEventListener('message', function(e) {
-    if (e.data.type === 'chat_response') {
-        const messagesDiv = document.getElementById('chat-messages');
-        
-        // Ajouter le message utilisateur
-        const userDiv = document.createElement('div');
-        userDiv.className = 'message user';
-        userDiv.textContent = e.data.user_message;
-        messagesDiv.appendChild(userDiv);
-        
-        // Ajouter la réponse de l'assistant
-        const assistantDiv = document.createElement('div');
-        assistantDiv.className = 'message assistant';
-        assistantDiv.textContent = e.data.response;
-        messagesDiv.appendChild(assistantDiv);
-        
-        // Scroll en bas
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        
-        // Réactiver l'input
-        document.getElementById('chat-input').value = '';
-        document.getElementById('chat-input').disabled = false;
+        this.setupEventListeners();
+        this.loadMessages();
     }
+
+    setupEventListeners() {
+        this.toggleBtn.addEventListener('click', () => this.toggleChat());
+        this.sendButton.addEventListener('click', () => this.sendMessage());
+        this.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.sendMessage();
+        });
+    }
+
+    toggleChat() {
+        this.isOpen = !this.isOpen;
+        this.widget.classList.toggle('open', this.isOpen);
+        this.toggleBtn.textContent = this.isOpen ? '▼' : '▲';
+        if (this.isOpen) this.input.focus();
+    }
+
+    async sendMessage() {
+        const message = this.input.value.trim();
+        if (!message) return;
+
+        // Désactiver l'interface pendant l'envoi
+        this.input.value = '';
+        this.input.disabled = true;
+        this.sendButton.disabled = true;
+
+        // Afficher le message utilisateur
+        this.addMessage('user', message);
+
+        // Afficher l'indicateur de frappe
+        this.typingIndicator.classList.add('visible');
+
+        try {
+            const response = await this.callChatAPI(message);
+            if (response && response.status === 'success') {
+                this.addMessage('assistant', response.response);
+            } else {
+                this.addMessage('assistant', "Je suis désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.");
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            this.addMessage('assistant', "Une erreur est survenue. Veuillez réessayer plus tard.");
+        } finally {
+            // Réactiver l'interface
+            this.input.disabled = false;
+            this.sendButton.disabled = false;
+            this.typingIndicator.classList.remove('visible');
+            this.input.focus();
+        }
+    }
+
+    async callChatAPI(message) {
+        const encodedMessage = encodeURIComponent(message);
+        const response = await fetch(`/?message=${encodedMessage}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) throw new Error('Network response was not ok');
+        return await response.json();
+    }
+
+    addMessage(type, content) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = content;
+        this.messagesContainer.appendChild(messageDiv);
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+
+    loadMessages() {
+        const savedMessages = localStorage.getItem('viewChatHistory');
+        if (savedMessages) {
+            JSON.parse(savedMessages).forEach(msg => {
+                this.addMessage(msg.type, msg.content);
+            });
+        }
+    }
+}
+
+// Initialiser le widget
+document.addEventListener('DOMContentLoaded', () => {
+    const chat = new ViewChatWidget();
+    setTimeout(() => {
+        if (!chat.isOpen) {
+            chat.toggleChat();
+        }
+    }, 2000);
 });
 </script>
+</div>
 """
 
 def get_openai_response(message: str) -> dict:
@@ -263,26 +314,16 @@ def get_openai_response(message: str) -> dict:
         }
 
 def main():
-    # Injecter le widget HTML avec un ID unique
-    st.components.v1.html(CHAT_HTML, height=600)
-    
-    # Créer un placeholder pour la communication JS->Python
-    placeholder = st.empty()
-    
-    # Si un message est reçu via le composant
-    if message := st.experimental_get_query_params().get("message"):
-        response = get_openai_response(message[0])
-        st.write(response)
+    # Gérer les messages de chat
+    params = st.query_params
+    if "message" in params:
+        message = params["message"]
+        response = get_openai_response(message)
+        st.json(response)
+        return
 
-    # Masquer les éléments Streamlit par défaut
-    st.markdown("""
-        <style>
-            header {display: none !important;}
-            .stDeployButton {display: none !important;}
-            footer {display: none !important;}
-            [data-testid="stToolbar"] {display: none !important;}
-        </style>
-    """, unsafe_allow_html=True)
+    # Afficher le widget
+    st.components.v1.html(CHAT_HTML, height=700)
 
 if __name__ == "__main__":
     main()
