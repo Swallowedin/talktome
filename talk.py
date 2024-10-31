@@ -2,6 +2,9 @@ import streamlit as st
 import openai
 import logging
 from logging.handlers import RotatingFileHandler
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
+import streamlit.components.v1 as components
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -12,14 +15,26 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Configuration de la page
+# Création de l'application FastAPI pour la gestion CORS
+app = FastAPI()
+
+# Configuration CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permet tous les domaines
+    allow_credentials=True,
+    allow_methods=["*"],  # Permet toutes les méthodes
+    allow_headers=["*"],  # Permet tous les en-têtes
+)
+
+# Configuration de la page Streamlit
 st.set_page_config(
     page_title="Assistant VIEW Avocats",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Style personnalisé pour ressembler au widget original
+# Style personnalisé
 st.markdown("""
 <style>
     /* Cacher les éléments Streamlit par défaut */
@@ -85,11 +100,15 @@ if 'OPENAI_API_KEY' not in st.secrets:
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# Initialisation de la session state pour l'historique
+# Initialisation de la session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-def get_openai_response(message: str) -> str:
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+async def get_openai_response(message: str) -> str:
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
@@ -107,6 +126,11 @@ def get_openai_response(message: str) -> str:
         logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
         return f"Désolé, une erreur est survenue : {str(e)}"
 
+@app.post("/chat")
+async def chat_endpoint(message: str):
+    response = await get_openai_response(message)
+    return {"response": response}
+
 def main():
     st.title("Assistant VIEW Avocats")
     
@@ -122,12 +146,23 @@ def main():
         # Ajouter le message utilisateur
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Obtenir et afficher la réponse
-        response = get_openai_response(prompt)
+        # Obtenir et afficher la réponse de manière asynchrone
+        response = asyncio.run(get_openai_response(prompt))
         st.session_state.messages.append({"role": "assistant", "content": response})
         
         # Rafraîchir pour afficher les nouveaux messages
         st.rerun()
 
 if __name__ == "__main__":
+    import asyncio
+    import uvicorn
+    
+    # Lancer FastAPI dans un thread séparé
+    import threading
+    def run_fastapi():
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    threading.Thread(target=run_fastapi, daemon=True).start()
+    
+    # Lancer l'application Streamlit
     main()
