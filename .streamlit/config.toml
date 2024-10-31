@@ -1,8 +1,20 @@
+[browser]
+serverAddress = "talktomeview.streamlit.app"
+serverPort = 8501
+gatherUsageStats = false
+
 [server]
 enableCORS = true
 enableXsrfProtection = false
-cors_allowed_origins = ["https://view-avocats.fr", "https://www.view-avocats.fr"]
 
-[browser]
-serverAddress = "talktomeview.streamlit.app"
-gatherUsageStats = false
+[theme]
+base="light"
+
+[client]
+toolbarMode = "minimal"
+
+[runner]
+fastReruns = true
+
+[logger]
+level = "info"
