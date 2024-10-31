@@ -2,6 +2,7 @@ import streamlit as st
 import openai
 import logging
 from logging.handlers import RotatingFileHandler
+import time
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -15,140 +16,9 @@ logger.addHandler(file_handler)
 # Configuration de la page
 st.set_page_config(
     page_title="Assistant VIEW Avocats",
-    layout="wide",
+    layout="centered",  # Changé pour un meilleur centrage
     initial_sidebar_state="collapsed"
 )
-
-# Style CSS mis à jour avec la couleur verte et la flèche
-st.markdown("""
-<style>
-    /* Reset Streamlit */
-    .main > div:first-child {padding: 0 !important;}
-    header {display: none !important;}
-    .block-container {padding: 0 !important; max-width: 100% !important;}
-    [data-testid="stToolbar"] {display: none !important;}
-    .stDeployButton {display: none !important;}
-    footer {display: none !important;}
-    .st-emotion-cache-1v0mbdj {width: auto !important;}
-    
-    /* Widget Container */
-    .chat-container {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 380px;
-        height: 600px;
-        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        border-radius: 10px;
-        overflow: hidden;
-        background: white;
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* Chat Header */
-    .chat-header {
-        background: #22c55e;
-        color: white;
-        padding: 15px 20px;
-        font-size: 16px;
-        font-weight: 500;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    /* Messages Area */
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        background: #f8fafc;
-    }
-
-    .message {
-        max-width: 85%;
-        padding: 10px 15px;
-        border-radius: 15px;
-        margin: 4px 0;
-    }
-
-    .user-message {
-        background: #22c55e;
-        color: white;
-        align-self: flex-end;
-        border-bottom-right-radius: 5px;
-    }
-
-    .assistant-message {
-        background: white;
-        color: #1a1a1a;
-        align-self: flex-start;
-        border-bottom-left-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-
-    /* Input Area */
-    .chat-input {
-        padding: 15px;
-        background: white;
-        border-top: 1px solid #e2e8f0;
-        display: flex;
-        gap: 10px;
-    }
-
-    /* Streamlit Elements Styling */
-    .stTextInput > div > div > input {
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 5px !important;
-        padding: 10px !important;
-        font-size: 14px !important;
-        background: white !important;
-    }
-
-    .stTextInput > div > div > input:focus {
-        border-color: #22c55e !important;
-        box-shadow: 0 0 0 1px #22c55e !important;
-    }
-
-    .stButton > button {
-        background-color: #22c55e !important;
-        padding: 10px 20px !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 5px !important;
-        cursor: pointer !important;
-        transition: background-color 0.2s !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        min-height: 42px !important;
-    }
-
-    .stButton > button:hover {
-        background-color: #16a34a !important;
-    }
-
-    .stButton > button:after {
-        content: '➤';
-        margin-left: 5px;
-        font-size: 14px;
-    }
-
-    @media (max-width: 480px) {
-        .chat-container {
-            width: 100%;
-            height: 100vh;
-            bottom: 0;
-            right: 0;
-            border-radius: 0;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # Configuration OpenAI
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -158,13 +28,118 @@ if 'OPENAI_API_KEY' not in st.secrets:
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# Initialisation des messages
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# CSS pour le style du widget
+st.markdown("""
+<style>
+    /* Reset Streamlit */
+    .stDeployButton, footer, header, [data-testid="stToolbar"] {display: none !important;}
+    section[data-testid="stSidebar"] {display: none !important;}
+    .main > div:first-child {padding-top: 0 !important;}
+    
+    /* Messages */
+    [data-testid="stChatMessage"] {
+        background-color: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .stMarkdown {
+        min-height: 0 !important;
+    }
+    
+    /* Chat container */
+    .st-emotion-cache-1v0mbdj > div:first-child {
+        margin-top: -100px;  /* Ajuster pour enlever l'espace en haut */
+    }
+    
+    /* Styliser les messages */
+    .user-message {
+        background-color: #22c55e;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 15px;
+        border-bottom-right-radius: 5px;
+        margin: 5px 0;
+        margin-left: 20%;
+        max-width: 80%;
+        float: right;
+        clear: both;
+    }
+    
+    .assistant-message {
+        background-color: white;
+        color: #1a1a1a;
+        padding: 10px 15px;
+        border-radius: 15px;
+        border-bottom-left-radius: 5px;
+        margin: 5px 0;
+        margin-right: 20%;
+        max-width: 80%;
+        float: left;
+        clear: both;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    /* Styliser l'input et le bouton */
+    .stTextInput input {
+        border: 1px solid #e2e8f0;
+        padding: 10px;
+        border-radius: 5px;
+        width: calc(100% - 20px);
+    }
+    
+    .stButton button {
+        background-color: #22c55e !important;
+        color: white !important;
+        border: none !important;
+        padding: 10px 15px !important;
+        border-radius: 5px !important;
+    }
+    
+    .stButton button::after {
+        content: " ➤";
+    }
+    
+    /* Container personnalisé */
+    .chat-container {
+        max-width: 380px !important;
+        margin: 0 auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .chat-header {
+        background: #22c55e;
+        color: white;
+        padding: 15px 20px;
+        font-weight: 500;
+    }
+    
+    .messages-container {
+        height: 450px;
+        overflow-y: auto;
+        padding: 20px;
+        background: #f8fafc;
+    }
+    
+    .input-container {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    /* Masquer le texte d'entrée par défaut */
+    .stTextInput div div::before {
+        display: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-def get_openai_response(message: str) -> dict:
+def get_openai_response(message: str):
+    """Obtenir une réponse d'OpenAI"""
     try:
-        logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -174,62 +149,50 @@ def get_openai_response(message: str) -> dict:
             temperature=0.7,
             max_tokens=500
         )
-        logger.info("Réponse reçue de OpenAI")
-        return {
-            "status": "success",
-            "response": response.choices[0].message.content
-        }
+        return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        logger.error(f"Erreur OpenAI: {str(e)}")
+        return "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer."
 
 def main():
-    # Container du chat
+    # Initialiser l'historique des messages
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Structure du widget
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-
-    # Header
-    st.markdown('''
-        <div class="chat-header">
-            <span>Assistant VIEW Avocats</span>
-            <span class="toggle-btn">▼</span>
-        </div>
-    ''', unsafe_allow_html=True)
-
-    # Messages
-    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    
+    # En-tête
+    st.markdown('<div class="chat-header">Assistant VIEW Avocats</div>', unsafe_allow_html=True)
+    
+    # Zone des messages
+    st.markdown('<div class="messages-container">', unsafe_allow_html=True)
     for message in st.session_state.messages:
-        message_class = "user-message" if message["role"] == "user" else "assistant-message"
-        st.markdown(f'<div class="message {message_class}">{message["content"]}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="{message["role"]}-message">{message["content"]}</div>',
+            unsafe_allow_html=True
+        )
     st.markdown('</div>', unsafe_allow_html=True)
-
+    
     # Zone de saisie
-    st.markdown('<div class="chat-input">', unsafe_allow_html=True)
-    col1, col2 = st.columns([4, 1])
-    
-    with col1:
-        user_input = st.text_input("", placeholder="Posez votre question ici...", key="user_input", label_visibility="collapsed")
-    
-    with col2:
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+    cols = st.columns([4, 1])
+    with cols[0]:
+        user_input = st.text_input("", placeholder="Posez votre question ici...", label_visibility="collapsed")
+    with cols[1]:
         send_button = st.button("Envoi")
-
     st.markdown('</div></div>', unsafe_allow_html=True)
 
     # Traitement du message
     if user_input and send_button:
+        # Ajouter le message de l'utilisateur
         st.session_state.messages.append({"role": "user", "content": user_input})
         
+        # Obtenir et ajouter la réponse
         response = get_openai_response(user_input)
-        if response["status"] == "success":
-            st.session_state.messages.append({"role": "assistant", "content": response["response"]})
-        else:
-            st.error("Une erreur est survenue. Veuillez réessayer.")
+        st.session_state.messages.append({"role": "assistant", "content": response})
         
-        # Vider le champ de saisie
-        st.session_state.user_input = ""
-        
+        # Recharger la page pour afficher les nouveaux messages
         st.rerun()
 
 if __name__ == "__main__":
