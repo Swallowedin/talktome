@@ -19,6 +19,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Masquer les éléments Streamlit
+st.markdown("""
+    <style>
+        header {display: none !important;}
+        footer {display: none !important;}
+        [data-testid="stToolbar"] {display: none !important;}
+        .stDeployButton {display: none !important;}
+    </style>
+""", unsafe_allow_html=True)
+
 # Configuration OpenAI
 if 'OPENAI_API_KEY' not in st.secrets:
     logger.error('⚠️ OPENAI_API_KEY non configurée')
@@ -27,7 +37,31 @@ if 'OPENAI_API_KEY' not in st.secrets:
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# HTML original du widget
+def get_openai_response(message: str) -> dict:
+    try:
+        logger.info(f"Message envoyé à OpenAI: {message}")
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
+                {"role": "user", "content": message}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        logger.info("Réponse reçue de OpenAI")
+        return {
+            "status": "success",
+            "response": response.choices[0].message.content
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+# HTML du widget avec JavaScript simplifié
 CHAT_HTML = """
 <div id="view-chat-widget" class="chat-widget">
     <style>
@@ -161,12 +195,6 @@ CHAT_HTML = """
                 border-radius: 0;
             }
         }
-
-        /* Masquer les éléments Streamlit */
-        header {display: none !important;}
-        .stDeployButton {display: none !important;}
-        footer {display: none !important;}
-        [data-testid="stToolbar"] {display: none !important;}
     </style>
 
     <div class="chat-header">
@@ -176,145 +204,93 @@ CHAT_HTML = """
     <div class="chat-messages"></div>
     <div class="typing-indicator">L'assistant répond...</div>
     <div class="chat-input">
-        <input type="text" placeholder="Posez votre question ici...">
-        <button type="submit">Envoi</button>
+        <input type="text" placeholder="Posez votre question ici..." id="chat-input">
+        <button onclick="handleSendMessage()">Envoi</button>
     </div>
 </div>
 
 <script>
-class ViewChatWidget {
-    constructor() {
-        this.widget = document.getElementById('view-chat-widget');
-        this.messagesContainer = this.widget.querySelector('.chat-messages');
-        this.input = this.widget.querySelector('input');
-        this.sendButton = this.widget.querySelector('button[type="submit"]');
-        this.toggleBtn = this.widget.querySelector('.toggle-btn');
-        this.typingIndicator = this.widget.querySelector('.typing-indicator');
-        this.isOpen = false;
+let isOpen = false;
+const widget = document.getElementById('view-chat-widget');
+const input = document.getElementById('chat-input');
+const messagesContainer = widget.querySelector('.chat-messages');
+const toggleBtn = widget.querySelector('.toggle-btn');
+const typingIndicator = widget.querySelector('.typing-indicator');
 
-        this.setupEventListeners();
-        this.loadMessages();
-    }
+// Fonction pour basculer le chat
+function toggleChat() {
+    isOpen = !isOpen;
+    widget.classList.toggle('open', isOpen);
+    toggleBtn.textContent = isOpen ? '▼' : '▲';
+    if (isOpen) input.focus();
+}
 
-    setupEventListeners() {
-        this.toggleBtn.addEventListener('click', () => this.toggleChat());
-        this.sendButton.addEventListener('click', () => this.sendMessage());
-        this.input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
-        });
-    }
+// Fonction pour ajouter un message
+function addMessage(content, isUser) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+    messageDiv.textContent = content;
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
 
-    toggleChat() {
-        this.isOpen = !this.isOpen;
-        this.widget.classList.toggle('open', this.isOpen);
-        this.toggleBtn.textContent = this.isOpen ? '▼' : '▲';
-        if (this.isOpen) this.input.focus();
-    }
+// Fonction pour envoyer un message
+async function handleSendMessage() {
+    const message = input.value.trim();
+    if (!message) return;
 
-    async sendMessage() {
-        const message = this.input.value.trim();
-        if (!message) return;
+    // Désactiver l'input pendant l'envoi
+    input.value = '';
+    input.disabled = true;
+    
+    // Afficher le message utilisateur
+    addMessage(message, true);
+    
+    // Afficher l'indicateur de frappe
+    typingIndicator.style.display = 'block';
 
-        // Désactiver l'interface pendant l'envoi
-        this.input.value = '';
-        this.input.disabled = true;
-        this.sendButton.disabled = true;
-
-        // Afficher le message utilisateur
-        this.addMessage('user', message);
-
-        // Afficher l'indicateur de frappe
-        this.typingIndicator.classList.add('visible');
-
-        try {
-            const response = await this.callChatAPI(message);
-            if (response && response.status === 'success') {
-                this.addMessage('assistant', response.response);
-            } else {
-                this.addMessage('assistant', "Je suis désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.");
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            this.addMessage('assistant', "Une erreur est survenue. Veuillez réessayer plus tard.");
-        } finally {
-            // Réactiver l'interface
-            this.input.disabled = false;
-            this.sendButton.disabled = false;
-            this.typingIndicator.classList.remove('visible');
-            this.input.focus();
-        }
-    }
-
-    async callChatAPI(message) {
-        const encodedMessage = encodeURIComponent(message);
-        const response = await fetch(`/?message=${encodedMessage}`, {
+    try {
+        const response = await fetch(`?message=${encodeURIComponent(message)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json'
             }
         });
 
-        if (!response.ok) throw new Error('Network response was not ok');
-        return await response.json();
-    }
-
-    addMessage(type, content) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = content;
-        this.messagesContainer.appendChild(messageDiv);
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-    }
-
-    loadMessages() {
-        const savedMessages = localStorage.getItem('viewChatHistory');
-        if (savedMessages) {
-            JSON.parse(savedMessages).forEach(msg => {
-                this.addMessage(msg.type, msg.content);
-            });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            addMessage(data.response, false);
+        } else {
+            addMessage("Désolé, une erreur est survenue. Veuillez réessayer.", false);
         }
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage("Désolé, une erreur est survenue. Veuillez réessayer.", false);
+    } finally {
+        // Réactiver l'input
+        input.disabled = false;
+        typingIndicator.style.display = 'none';
+        input.focus();
     }
 }
 
-// Initialiser le widget
-document.addEventListener('DOMContentLoaded', () => {
-    const chat = new ViewChatWidget();
-    setTimeout(() => {
-        if (!chat.isOpen) {
-            chat.toggleChat();
-        }
-    }, 2000);
+// Event listeners
+toggleBtn.addEventListener('click', toggleChat);
+input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleSendMessage();
 });
+
+// Ouvrir le chat après 2 secondes
+setTimeout(() => {
+    if (!isOpen) toggleChat();
+}, 2000);
 </script>
 </div>
 """
 
-def get_openai_response(message: str) -> dict:
-    try:
-        logger.info(f"Message envoyé à OpenAI: {message}")
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.7,
-            max_tokens=500
-        )
-        logger.info("Réponse reçue de OpenAI")
-        return {
-            "status": "success",
-            "response": response.choices[0].message.content
-        }
-    except Exception as e:
-        logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
 def main():
-    # Gérer les messages de chat
+    # Gérer les requêtes API
     params = st.query_params
     if "message" in params:
         message = params["message"]
