@@ -17,4 +17,4 @@ toolbarMode = "minimal"
 fastReruns = true
 
 [logger]
-level = "info"
+level = "debug"
