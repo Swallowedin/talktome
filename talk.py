@@ -19,10 +19,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS personnalisé
+# Style CSS pour reproduire exactement le widget
 st.markdown("""
 <style>
-    /* Masquer les éléments Streamlit par défaut */
+    /* Masquer les éléments Streamlit */
     #root > div:first-child {
         background-color: transparent;
     }
@@ -34,14 +34,21 @@ st.markdown("""
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
     footer {display: none !important;}
-
-    /* Style du chat */
+    .st-emotion-cache-1v0mbdj {width: auto !important;}
+    
+    /* Style du widget */
     .chat-widget {
-        max-width: 800px;
-        margin: 0 auto;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 380px;
+        height: 600px;
         background: white;
         border-radius: 10px;
         box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        z-index: 9999;
     }
 
     .chat-header {
@@ -49,11 +56,21 @@ st.markdown("""
         background: #1a365d;
         color: white;
         border-radius: 10px 10px 0 0;
-        font-size: 18px;
-        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
-    /* Style des messages */
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        height: calc(100% - 130px);
+    }
+
     .user-message {
         background: #1a365d;
         color: white;
@@ -61,8 +78,8 @@ st.markdown("""
         border-radius: 15px;
         border-bottom-right-radius: 5px;
         margin: 5px 0;
-        margin-left: 20%;
-        margin-right: 10px;
+        align-self: flex-end;
+        max-width: 85%;
     }
 
     .assistant-message {
@@ -72,50 +89,69 @@ st.markdown("""
         border-radius: 15px;
         border-bottom-left-radius: 5px;
         margin: 5px 0;
-        margin-right: 20%;
-        margin-left: 10px;
+        align-self: flex-start;
+        max-width: 85%;
     }
 
-    /* Style de la zone de saisie */
+    .chat-input-container {
+        padding: 15px;
+        border-top: 1px solid #e2e8f0;
+        background: white;
+        border-radius: 0 0 10px 10px;
+    }
+
+    .chat-input {
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Style des éléments Streamlit pour matcher le widget */
     .stTextInput > div > div > input {
-        border: 1px solid #e2e8f0;
-        border-radius: 5px;
-        padding: 10px 15px;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 5px !important;
+        padding: 10px !important;
+        font-size: 14px !important;
     }
 
-    .stTextInput > div > div > input:focus {
-        border-color: #1a365d;
-        box-shadow: 0 0 0 1px #1a365d;
-    }
-
-    /* Style des boutons */
     .stButton > button {
-        background-color: #1a365d;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.2s;
+        background-color: #1a365d !important;
+        color: white !important;
+        border: none !important;
+        padding: 8px 20px !important;
+        border-radius: 5px !important;
+        cursor: pointer !important;
+        transition: background-color 0.2s !important;
     }
 
     .stButton > button:hover {
-        background-color: #2c5282;
+        background-color: #2c5282 !important;
+    }
+
+    @media (max-width: 480px) {
+        .chat-widget {
+            width: 100%;
+            height: 100vh;
+            bottom: 0;
+            right: 0;
+            border-radius: 0;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Configuration OpenAI
+if 'OPENAI_API_KEY' not in st.secrets:
+    logger.error('⚠️ OPENAI_API_KEY non configurée')
+    st.error('⚠️ OPENAI_API_KEY non configurée')
+    st.stop()
+
+openai.api_key = st.secrets['OPENAI_API_KEY']
+
 # Initialisation de la session state
 if "messages" not in st.session_state:
-    if 'OPENAI_API_KEY' not in st.secrets:
-        logger.error('⚠️ OPENAI_API_KEY non configurée')
-        st.error('⚠️ OPENAI_API_KEY non configurée')
-        st.stop()
-    openai.api_key = st.secrets['OPENAI_API_KEY']
     st.session_state.messages = []
 
 def get_openai_response(message: str) -> dict:
-    """Fonction pour obtenir une réponse d'OpenAI avec gestion des erreurs"""
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
@@ -127,7 +163,6 @@ def get_openai_response(message: str) -> dict:
             temperature=0.7,
             max_tokens=500
         )
-        
         logger.info("Réponse reçue de OpenAI")
         return {
             "status": "success",
@@ -141,40 +176,51 @@ def get_openai_response(message: str) -> dict:
         }
 
 def main():
-    # En-tête personnalisé
+    # Structure du widget
     st.markdown('<div class="chat-widget">', unsafe_allow_html=True)
-    st.markdown('<div class="chat-header">Assistant VIEW Avocats</div>', unsafe_allow_html=True)
-
-    # Zone de messages
+    
+    # En-tête
+    st.markdown('''
+        <div class="chat-header">
+            <span>Assistant VIEW Avocats</span>
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    # Zone des messages
+    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     for message in st.session_state.messages:
         if message["role"] == "user":
             st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
-
-    # Zone de saisie avec colonnes pour l'alignement
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Zone de saisie
+    st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-input">', unsafe_allow_html=True)
+    
+    # Utiliser les colonnes pour la mise en page
     col1, col2 = st.columns([4, 1])
     with col1:
-        user_input = st.text_input("", placeholder="Posez votre question ici...", key="user_input")
+        user_input = st.text_input("", placeholder="Posez votre question ici...", key="user_input", label_visibility="collapsed")
     with col2:
         send_button = st.button("Envoyer")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
+    
+    st.markdown('</div></div></div>', unsafe_allow_html=True)
+    
     # Traitement du message
     if user_input and send_button:
-        # Ajouter le message de l'utilisateur
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Obtenir la réponse
         response = get_openai_response(user_input)
-        
         if response["status"] == "success":
             st.session_state.messages.append({"role": "assistant", "content": response["response"]})
         else:
-            st.error(f"Erreur: {response.get('message', 'Une erreur est survenue')}")
+            st.error("Une erreur est survenue. Veuillez réessayer.")
         
-        # Recharger la page pour afficher les nouveaux messages
+        # Vider le champ de saisie
+        st.session_state.user_input = ""
+        
         st.rerun()
 
 if __name__ == "__main__":
