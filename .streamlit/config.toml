@@ -1,7 +1,14 @@
+# Fichier : .streamlit/config.toml
+
 [server]
 enableCORS = true
 enableXsrfProtection = false
+cors_allowed_origins = ["https://view-avocats.fr", "https://www.view-avocats.fr"]
 
 [browser]
 serverAddress = "talktomeview.streamlit.app"
 gatherUsageStats = false
+
+# Configuration additionnelle pour le développement local
+[server.address]
+port = 8501
