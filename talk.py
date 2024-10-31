@@ -2,8 +2,6 @@ import streamlit as st
 import openai
 import logging
 from logging.handlers import RotatingFileHandler
-import time
-from typing import Dict, Any
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +19,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Masquer les éléments Streamlit par défaut
+# CSS personnalisé
 st.markdown("""
 <style>
+    /* Masquer les éléments Streamlit par défaut */
     #root > div:first-child {
         background-color: transparent;
     }
@@ -35,6 +34,74 @@ st.markdown("""
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
     footer {display: none !important;}
+
+    /* Style du chat */
+    .chat-widget {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    }
+
+    .chat-header {
+        padding: 15px 20px;
+        background: #1a365d;
+        color: white;
+        border-radius: 10px 10px 0 0;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    /* Style des messages */
+    .user-message {
+        background: #1a365d;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 15px;
+        border-bottom-right-radius: 5px;
+        margin: 5px 0;
+        margin-left: 20%;
+        margin-right: 10px;
+    }
+
+    .assistant-message {
+        background: #f1f5f9;
+        color: #1a365d;
+        padding: 10px 15px;
+        border-radius: 15px;
+        border-bottom-left-radius: 5px;
+        margin: 5px 0;
+        margin-right: 20%;
+        margin-left: 10px;
+    }
+
+    /* Style de la zone de saisie */
+    .stTextInput > div > div > input {
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        padding: 10px 15px;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #1a365d;
+        box-shadow: 0 0 0 1px #1a365d;
+    }
+
+    /* Style des boutons */
+    .stButton > button {
+        background-color: #1a365d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .stButton > button:hover {
+        background-color: #2c5282;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,9 +113,8 @@ if "messages" not in st.session_state:
         st.stop()
     openai.api_key = st.secrets['OPENAI_API_KEY']
     st.session_state.messages = []
-    st.session_state.last_request_time = time.time()
 
-def get_openai_response(message: str) -> Dict[str, Any]:
+def get_openai_response(message: str) -> dict:
     """Fonction pour obtenir une réponse d'OpenAI avec gestion des erreurs"""
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
@@ -74,46 +140,42 @@ def get_openai_response(message: str) -> Dict[str, Any]:
             "message": str(e)
         }
 
-def handle_api_request():
-    """Gestion des requêtes API"""
-    params = st.query_params
-    if "api" in params and params["api"] == "true" and "message" in params:
-        message = params["message"]
-        response = get_openai_response(message)
-        st.json(response)
-        return True
-    return False
-
 def main():
-    # Vérifier si c'est une requête API
-    if handle_api_request():
-        return
+    # En-tête personnalisé
+    st.markdown('<div class="chat-widget">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-header">Assistant VIEW Avocats</div>', unsafe_allow_html=True)
 
-    # Interface utilisateur normale
-    st.header("Assistant VIEW Avocats")
-
-    # Afficher l'historique des messages
+    # Zone de messages
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if message["role"] == "user":
+            st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
 
-    # Zone de saisie
-    if prompt := st.chat_input("Comment puis-je vous aider ?"):
-        # Afficher le message de l'utilisateur
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    # Zone de saisie avec colonnes pour l'alignement
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        user_input = st.text_input("", placeholder="Posez votre question ici...", key="user_input")
+    with col2:
+        send_button = st.button("Envoyer")
 
-        # Obtenir et afficher la réponse
-        with st.chat_message("assistant"):
-            response = get_openai_response(prompt)
-            if response["status"] == "success":
-                st.markdown(response["response"])
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response["response"]}
-                )
-            else:
-                st.error(f"Erreur: {response.get('message', 'Une erreur est survenue')}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Traitement du message
+    if user_input and send_button:
+        # Ajouter le message de l'utilisateur
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        # Obtenir la réponse
+        response = get_openai_response(user_input)
+        
+        if response["status"] == "success":
+            st.session_state.messages.append({"role": "assistant", "content": response["response"]})
+        else:
+            st.error(f"Erreur: {response.get('message', 'Une erreur est survenue')}")
+        
+        # Recharger la page pour afficher les nouveaux messages
+        st.rerun()
 
 if __name__ == "__main__":
     main()
