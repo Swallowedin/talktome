@@ -1,0 +1,7 @@
+[server]
+enableCORS = true
+enableXsrfProtection = false
+
+[browser]
+serverAddress = "talktomeview.streamlit.app"
+gatherUsageStats = false
