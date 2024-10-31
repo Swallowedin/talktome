@@ -2,6 +2,8 @@ import streamlit as st
 import openai
 import logging
 from logging.handlers import RotatingFileHandler
+import os
+from datetime import datetime, timedelta
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -19,72 +21,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Configuration CORS pour Streamlit
-st.markdown("""
-<head>
-    <meta http-equiv="Access-Control-Allow-Origin" content="*">
-    <meta http-equiv="Access-Control-Allow-Methods" content="GET, POST, PUT, DELETE, OPTIONS">
-    <meta http-equiv="Access-Control-Allow-Headers" content="Content-Type">
-</head>
-""", unsafe_allow_html=True)
+# Configuration des en-têtes de sécurité
+def set_security_headers():
+    headers = {
+        'Access-Control-Allow-Origin': 'https://view-avocats.fr',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Credentials': 'true',
+        'X-Frame-Options': 'ALLOW-FROM https://view-avocats.fr',
+        'Content-Security-Policy': "frame-ancestors 'self' https://view-avocats.fr"
+    }
+    
+    for key, value in headers.items():
+        st.markdown(f"<meta http-equiv='{key}' content='{value}'>", unsafe_allow_html=True)
 
-# Style personnalisé
-st.markdown("""
-<style>
-    /* Cacher les éléments Streamlit par défaut */
-    header {display: none !important;}
-    footer {display: none !important;}
-    [data-testid="stToolbar"] {display: none !important;}
-    .stDeployButton {display: none !important;}
-    
-    /* Style pour le chat */
-    .stTextInput input {
-        border: 1px solid #e2e8f0 !important;
-        padding: 10px !important;
-        border-radius: 5px !important;
-    }
-    
-    .stButton > button {
-        background-color: #22c55e !important;
-        color: white !important;
-        padding: 10px 20px !important;
-        border-radius: 5px !important;
-    }
-    
-    .stButton > button:hover {
-        background-color: #16a34a !important;
-    }
-    
-    /* Style des messages */
-    [data-testid="stChatMessage"] {
-        background-color: transparent !important;
-        padding: 0 !important;
-    }
-    
-    .user-message {
-        background-color: #22c55e;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 15px;
-        border-bottom-right-radius: 5px;
-        margin: 5px 0;
-        max-width: 85%;
-        float: right;
-    }
-    
-    .assistant-message {
-        background-color: white;
-        color: #1a1a1a;
-        padding: 10px 15px;
-        border-radius: 15px;
-        border-bottom-left-radius: 5px;
-        margin: 5px 0;
-        max-width: 85%;
-        float: left;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-</style>
-""", unsafe_allow_html=True)
+# Initialisation de l'état de session
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.messages = []
+    st.session_state.authenticated = False
 
 # Configuration OpenAI
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -93,10 +48,6 @@ if 'OPENAI_API_KEY' not in st.secrets:
     st.stop()
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
-
-# Initialisation de la session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 def get_openai_response(message: str) -> str:
     try:
@@ -116,41 +67,63 @@ def get_openai_response(message: str) -> str:
         logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
         return f"Désolé, une erreur est survenue : {str(e)}"
 
-def main():
-    # Récupérer les paramètres d'URL
+def authenticate():
+    # Vérification de l'origine
     params = st.experimental_get_query_params()
+    origin = params.get('origin', [''])[0]
     
-    # Gérer le paramètre message s'il existe
-    if "message" in params:
-        message = params["message"][0]  # Prendre le premier message s'il y en a plusieurs
+    if origin == 'https://view-avocats.fr':
+        st.session_state.authenticated = True
+        return True
+    
+    logger.warning(f"Tentative d'accès non autorisée depuis : {origin}")
+    return False
+
+def handle_api_request(message: str):
+    if not st.session_state.authenticated:
+        if not authenticate():
+            return {"status": "error", "message": "Non autorisé"}
+    
+    try:
         response = get_openai_response(message)
-        
-        # Retourner la réponse en JSON
-        st.json({
-            "status": "success",
-            "response": response
-        })
+        return {"status": "success", "response": response}
+    except Exception as e:
+        logger.error(f"Erreur API: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+def main():
+    # Appliquer les en-têtes de sécurité
+    set_security_headers()
+    
+    # Vérifier s'il s'agit d'une requête API
+    params = st.experimental_get_query_params()
+    if 'message' in params:
+        message = params['message'][0]
+        response = handle_api_request(message)
+        st.json(response)
         return
     
+    # Interface utilisateur normale
     st.title("Assistant VIEW Avocats")
     
     # Afficher l'historique des messages
     for message in st.session_state.messages:
         if message["role"] == "user":
-            st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="background-color: #22c55e; color: white; padding: 10px; border-radius: 15px; margin: 5px 0; text-align: right;">{message["content"]}</div>',
+                unsafe_allow_html=True
+            )
         else:
-            st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="background-color: white; color: black; padding: 10px; border-radius: 15px; margin: 5px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">{message["content"]}</div>',
+                unsafe_allow_html=True
+            )
 
     # Input utilisateur
     if prompt := st.chat_input("Posez votre question ici..."):
-        # Ajouter le message utilisateur
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Obtenir et afficher la réponse
         response = get_openai_response(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        
-        # Rafraîchir pour afficher les nouveaux messages
         st.rerun()
 
 if __name__ == "__main__":
