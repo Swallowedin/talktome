@@ -19,48 +19,46 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Style CSS pour reproduire exactement le widget
+# Style CSS mis à jour avec la couleur verte et la flèche
 st.markdown("""
 <style>
-    /* Masquer les éléments Streamlit */
-    #root > div:first-child {
-        background-color: transparent;
-    }
-    .main > div:first-child {
-        padding: 0rem 0rem;
-    }
+    /* Reset Streamlit */
+    .main > div:first-child {padding: 0 !important;}
     header {display: none !important;}
-    .block-container {padding: 0 !important;}
+    .block-container {padding: 0 !important; max-width: 100% !important;}
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
     footer {display: none !important;}
     .st-emotion-cache-1v0mbdj {width: auto !important;}
     
-    /* Style du widget */
-    .chat-widget {
+    /* Widget Container */
+    .chat-container {
         position: fixed;
         bottom: 20px;
         right: 20px;
         width: 380px;
         height: 600px;
-        background: white;
-        border-radius: 10px;
         box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        overflow: hidden;
+        background: white;
         display: flex;
         flex-direction: column;
-        z-index: 9999;
     }
 
+    /* Chat Header */
     .chat-header {
-        padding: 15px 20px;
-        background: #1a365d;
+        background: #22c55e;
         color: white;
-        border-radius: 10px 10px 0 0;
+        padding: 15px 20px;
+        font-size: 16px;
+        font-weight: 500;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
 
+    /* Messages Area */
     .chat-messages {
         flex: 1;
         overflow-y: auto;
@@ -68,67 +66,80 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         gap: 10px;
-        height: calc(100% - 130px);
+        background: #f8fafc;
+    }
+
+    .message {
+        max-width: 85%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        margin: 4px 0;
     }
 
     .user-message {
-        background: #1a365d;
+        background: #22c55e;
         color: white;
-        padding: 10px 15px;
-        border-radius: 15px;
-        border-bottom-right-radius: 5px;
-        margin: 5px 0;
         align-self: flex-end;
-        max-width: 85%;
+        border-bottom-right-radius: 5px;
     }
 
     .assistant-message {
-        background: #f1f5f9;
-        color: #1a365d;
-        padding: 10px 15px;
-        border-radius: 15px;
-        border-bottom-left-radius: 5px;
-        margin: 5px 0;
-        align-self: flex-start;
-        max-width: 85%;
-    }
-
-    .chat-input-container {
-        padding: 15px;
-        border-top: 1px solid #e2e8f0;
         background: white;
-        border-radius: 0 0 10px 10px;
+        color: #1a1a1a;
+        align-self: flex-start;
+        border-bottom-left-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
 
+    /* Input Area */
     .chat-input {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #e2e8f0;
         display: flex;
         gap: 10px;
     }
 
-    /* Style des éléments Streamlit pour matcher le widget */
+    /* Streamlit Elements Styling */
     .stTextInput > div > div > input {
         border: 1px solid #e2e8f0 !important;
         border-radius: 5px !important;
         padding: 10px !important;
         font-size: 14px !important;
+        background: white !important;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #22c55e !important;
+        box-shadow: 0 0 0 1px #22c55e !important;
     }
 
     .stButton > button {
-        background-color: #1a365d !important;
+        background-color: #22c55e !important;
+        padding: 10px 20px !important;
         color: white !important;
         border: none !important;
-        padding: 8px 20px !important;
         border-radius: 5px !important;
         cursor: pointer !important;
         transition: background-color 0.2s !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 42px !important;
     }
 
     .stButton > button:hover {
-        background-color: #2c5282 !important;
+        background-color: #16a34a !important;
+    }
+
+    .stButton > button:after {
+        content: '➤';
+        margin-left: 5px;
+        font-size: 14px;
     }
 
     @media (max-width: 480px) {
-        .chat-widget {
+        .chat-container {
             width: 100%;
             height: 100vh;
             bottom: 0;
@@ -147,7 +158,7 @@ if 'OPENAI_API_KEY' not in st.secrets:
 
 openai.api_key = st.secrets['OPENAI_API_KEY']
 
-# Initialisation de la session state
+# Initialisation des messages
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -176,38 +187,36 @@ def get_openai_response(message: str) -> dict:
         }
 
 def main():
-    # Structure du widget
-    st.markdown('<div class="chat-widget">', unsafe_allow_html=True)
-    
-    # En-tête
+    # Container du chat
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
+    # Header
     st.markdown('''
         <div class="chat-header">
             <span>Assistant VIEW Avocats</span>
+            <span class="toggle-btn">▼</span>
         </div>
     ''', unsafe_allow_html=True)
-    
-    # Zone des messages
+
+    # Messages
     st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
     for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.markdown(f'<div class="user-message">{message["content"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="assistant-message">{message["content"]}</div>', unsafe_allow_html=True)
+        message_class = "user-message" if message["role"] == "user" else "assistant-message"
+        st.markdown(f'<div class="message {message_class}">{message["content"]}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     # Zone de saisie
-    st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
     st.markdown('<div class="chat-input">', unsafe_allow_html=True)
-    
-    # Utiliser les colonnes pour la mise en page
     col1, col2 = st.columns([4, 1])
+    
     with col1:
         user_input = st.text_input("", placeholder="Posez votre question ici...", key="user_input", label_visibility="collapsed")
+    
     with col2:
-        send_button = st.button("Envoyer")
-    
-    st.markdown('</div></div></div>', unsafe_allow_html=True)
-    
+        send_button = st.button("Envoi")
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
     # Traitement du message
     if user_input and send_button:
         st.session_state.messages.append({"role": "user", "content": user_input})
