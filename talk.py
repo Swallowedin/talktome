@@ -39,26 +39,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialisation de la session state
-if "openai_initialized" not in st.session_state:
+if "messages" not in st.session_state:
     if 'OPENAI_API_KEY' not in st.secrets:
         logger.error('⚠️ OPENAI_API_KEY non configurée')
         st.error('⚠️ OPENAI_API_KEY non configurée')
         st.stop()
     openai.api_key = st.secrets['OPENAI_API_KEY']
-    st.session_state.openai_initialized = True
     st.session_state.messages = []
-    st.session_state.last_request_time = 0
-    st.session_state.processing = False
+    st.session_state.last_request_time = time.time()
 
 def get_openai_response(message: str) -> Dict[str, Any]:
-    """Fonction pour obtenir une réponse d'OpenAI avec gestion des erreurs et du rate limiting"""
+    """Fonction pour obtenir une réponse d'OpenAI avec gestion des erreurs"""
     try:
-        # Vérifier le rate limiting
-        current_time = time.time()
-        time_since_last_request = current_time - st.session_state.last_request_time
-        if time_since_last_request < 1:  # Attendre au moins 1 seconde entre les requêtes
-            time.sleep(1 - time_since_last_request)
-
         logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -70,9 +62,7 @@ def get_openai_response(message: str) -> Dict[str, Any]:
             max_tokens=500
         )
         
-        st.session_state.last_request_time = time.time()
         logger.info("Réponse reçue de OpenAI")
-        
         return {
             "status": "success",
             "response": response.choices[0].message.content
@@ -86,9 +76,9 @@ def get_openai_response(message: str) -> Dict[str, Any]:
 
 def handle_api_request():
     """Gestion des requêtes API"""
-    params = st.experimental_get_query_params()
-    if "api" in params and params["api"][0] == "true" and "message" in params:
-        message = params["message"][0]
+    params = st.query_params
+    if "api" in params and params["api"] == "true" and "message" in params:
+        message = params["message"]
         response = get_openai_response(message)
         st.json(response)
         return True
@@ -109,25 +99,21 @@ def main():
 
     # Zone de saisie
     if prompt := st.chat_input("Comment puis-je vous aider ?"):
-        if not st.session_state.processing:
-            st.session_state.processing = True
-            
-            # Afficher le message de l'utilisateur immédiatement
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            st.session_state.messages.append({"role": "user", "content": prompt})
+        # Afficher le message de l'utilisateur
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
-            # Obtenir et afficher la réponse
-            with st.chat_message("assistant"):
-                response = get_openai_response(prompt)
-                if response["status"] == "success":
-                    st.markdown(response["response"])
-                    st.session_state.messages.append({"role": "assistant", "content": response["response"]})
-                else:
-                    st.error(f"Erreur: {response.get('message', 'Une erreur est survenue')}")
-            
-            st.session_state.processing = False
-            st.experimental_rerun()
+        # Obtenir et afficher la réponse
+        with st.chat_message("assistant"):
+            response = get_openai_response(prompt)
+            if response["status"] == "success":
+                st.markdown(response["response"])
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response["response"]}
+                )
+            else:
+                st.error(f"Erreur: {response.get('message', 'Une erreur est survenue')}")
 
 if __name__ == "__main__":
     main()
