@@ -4,14 +4,14 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-# Configuration de la page
+# Configuration page
 st.set_page_config(
    page_title="Assistant VIEW Avocats",
    layout="wide",
    initial_sidebar_state="collapsed"
 )
 
-# Configuration du logging
+# Configuration logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 file_handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=5)
@@ -19,7 +19,7 @@ file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(file_handler)
 
-# Masquer les éléments Streamlit
+# Styles
 st.markdown("""
 <style>
    #root > div:first-child { background-color: transparent; }
@@ -29,18 +29,40 @@ st.markdown("""
    [data-testid="stToolbar"] {display: none !important;}
    .stDeployButton {display: none !important;}
    footer {display: none !important;}
+   
+   .stChatFloatingInputContainer {
+       position: fixed !important;
+       bottom: 20px !important;
+       background: white !important;
+       padding: 10px !important;
+       border-radius: 10px !important;
+       box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
+       width: 90% !important;
+   }
+   
+   .stChatMessage {
+       background: white !important;
+       border-radius: 10px !important;
+       margin: 5px 0 !important;
+       padding: 10px !important;
+   }
+   
+   .st-emotion-cache-1v0mbdj {
+       width: 100% !important;
+       max-width: none !important;
+   }
 </style>
 """, unsafe_allow_html=True)
 
 # Configuration OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# Interface de chat
-st.title("Assistant VIEW Avocats")
+# Interface chat
+# st.title("Assistant VIEW Avocats")
 if "messages" not in st.session_state:
    st.session_state.messages = []
 
-# Afficher l'historique
+# Afficher historique
 for message in st.session_state.messages:
    with st.chat_message(message["role"]):
        st.markdown(message["content"])
