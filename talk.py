@@ -4,6 +4,14 @@ import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+from typing import Optional, List
+
+# Configuration de la page
+st.set_page_config(
+    page_title="Assistant VIEW Avocats",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -14,45 +22,56 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Configuration de la page Streamlit
-st.set_page_config(page_title="Assistant VIEW Avocats", layout="wide")
-
-# Style personnalisé
+# Styles personnalisés
 st.markdown("""
 <style>
-    .stApp {
+    #root > div:first-child {
         background-color: transparent;
     }
-    .main {
+    .main > div:first-child {
+        padding: 0rem 0rem;
+    }
+    header {display: none !important;}
+    .block-container {padding: 0 !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+    footer {display: none !important;}
+    
+    .question-box {
         background-color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .stTextInput > div > div > input {
-        background-color: white;
+    
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
     }
-    .stButton > button {
-        background-color: #1D4E44;
-        color: white;
-    }
-    .chat-message {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-    }
-    .user-message {
-        background-color: #f0f2f6;
-    }
-    .assistant-message {
-        background-color: #e5f5f1;
+    
+    .stTextInput {
+        border-radius: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Configuration OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
+def load_knowledge_base(file_path: str) -> Optional[str]:
+    """Charge le contenu de la base de connaissances depuis un fichier texte"""
+    try:
+        if not os.path.exists(file_path):
+            logger.error(f"Le fichier {file_path} n'existe pas")
+            return None
+        
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return content
+    except Exception as e:
+        logger.error(f"Erreur lors du chargement de la base de connaissances: {str(e)}")
+        return None
 
-def get_openai_response(message: str) -> dict:
+def get_openai_response(message: str, context: str = "") -> dict:
     """Obtient une réponse d'OpenAI"""
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
@@ -60,10 +79,11 @@ def get_openai_response(message: str) -> dict:
             model="gpt-4",
             messages=[
                 {
-                    "role": "system",
-                    "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats. Répondez de manière professionnelle et concise."
+                    "role": "system", 
+                    "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats. " + 
+                              "Répondez en vous basant sur les informations fournies dans le contexte."
                 },
-                {"role": "user", "content": message}
+                {"role": "user", "content": f"{context}\n\nQuestion: {message}"}
             ],
             temperature=0.7,
             max_tokens=500
@@ -79,52 +99,82 @@ def get_openai_response(message: str) -> dict:
             "message": str(e)
         }
 
-def init_session_state():
-    """Initialise les variables de session"""
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-def display_chat_history():
-    """Affiche l'historique des messages"""
-    for message in st.session_state.messages:
-        with st.container():
-            st.markdown(
-                f"""<div class="chat-message {'user-message' if message['role'] == 'user' else 'assistant-message'}">
-                    {message['content']}
-                </div>""",
-                unsafe_allow_html=True
-            )
+def display_question_box():
+    """Affiche la boîte de questions"""
+    with st.container():
+        st.markdown('<div class="question-box">', unsafe_allow_html=True)
+        
+        questions_predefinies = [
+            "Quels sont vos domaines d'expertise ?",
+            "Comment prendre rendez-vous ?",
+            "Quels sont vos tarifs ?",
+            "Où se trouve votre cabinet ?"
+        ]
+        
+        selected_question = st.selectbox(
+            "Questions fréquentes",
+            [""] + questions_predefinies,
+            index=0,
+            key="preset_questions"
+        )
+        
+        custom_question = st.text_input(
+            "Ou posez votre propre question",
+            key="custom_question"
+        )
+        
+        if st.button("Envoyer", key="send_button"):
+            question = custom_question if custom_question else selected_question
+            if question:
+                return question
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        return None
 
 def main():
     st.title("Assistant VIEW Avocats")
     
-    # Initialisation
-    init_session_state()
+    # Vérification de la clé API
+    if not os.getenv('OPENAI_API_KEY'):
+        st.error("La clé API OpenAI n'est pas configurée. Veuillez configurer la variable d'environnement OPENAI_API_KEY.")
+        return
     
-    # Zone de saisie du message
-    user_input = st.text_input("Votre message:", key="user_input")
+    # Chargement de la base de connaissances
+    knowledge_base_content = load_knowledge_base("knowledge_base.txt")
+    if knowledge_base_content is None:
+        st.error("Erreur lors du chargement de la base de connaissances")
+        return
     
-    # Traitement du message
-    if st.button("Envoyer", key="send_button"):
-        if user_input:
-            # Ajout du message utilisateur
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            
-            # Obtention de la réponse
-            response = get_openai_response(user_input)
+    # Initialisation de l'historique des messages
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    # Affichage de la box de questions
+    question = display_question_box()
+    
+    # Traitement de la question
+    if question:
+        st.session_state.messages.append({"role": "user", "content": question})
+        
+        try:
+            # Obtention de la réponse avec le contexte de la base de connaissances
+            response = get_openai_response(question, knowledge_base_content)
             
             if response["status"] == "success":
                 st.session_state.messages.append({"role": "assistant", "content": response["response"]})
             else:
                 st.error("Désolé, une erreur est survenue lors du traitement de votre demande.")
                 logger.error(f"Erreur de réponse: {response.get('message', 'Unknown error')}")
+        
+        except Exception as e:
+            st.error("Une erreur est survenue lors du traitement de votre question.")
+            logger.error(f"Erreur lors du traitement de la question: {str(e)}")
     
-    # Affichage de l'historique
-    display_chat_history()
+    # Affichage de l'historique des messages
+    with st.container():
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logger.error(f"Erreur principale: {str(e)}")
-        st.error("Une erreur est survenue. Veuillez réessayer plus tard.")
+    main()
