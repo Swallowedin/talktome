@@ -104,21 +104,22 @@ if prompt := st.chat_input("Votre message"):
    with st.chat_message("user"):
        st.markdown(prompt)
 
-   # Réponse assistant
+# Modifiez cette section dans le code :
    with st.chat_message("assistant"):
        try:
            # Recherche dans la base de connaissances
            relevant_docs = st.session_state.knowledge_base.query(prompt)
            context = ""
            if relevant_docs:
-               context = "Information pertinente trouvée dans la base de connaissances:\n" + \
-                        "\n".join([doc.page_content for doc in relevant_docs]) + "\n\n"
+               context = "INSTRUCTIONS IMPORTANTES: Basez-vous prioritairement sur ces informations pour répondre:\n\n" + \
+                        "\n".join([doc.page_content for doc in relevant_docs]) + \
+                        "\n\nSi ces informations ne sont pas suffisantes, vous pouvez utiliser vos connaissances générales en complément."
            
            response = openai.chat.completions.create(
                model="gpt-4o-mini",
                messages=[
-                   {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
-                   {"role": "user", "content": context + prompt}
+                   {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats. Vous devez IMPÉRATIVEMENT utiliser les informations fournies dans le contexte pour répondre. Ne répondez qu'en vous basant sur les informations disponibles dans la base de connaissances. Si la réponse n'est pas dans la base, orientez vers une consultation avec un avocat."},
+                   {"role": "user", "content": f"{context}\n\nQuestion de l'utilisateur: {prompt}"}
                ],
                temperature=0.7,
                max_tokens=500
