@@ -1,133 +1,93 @@
+
 import streamlit as st
 import openai
-import os
+import json
 import logging
+import os
 from logging.handlers import RotatingFileHandler
-from langchain.document_loaders import DirectoryLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
 
-# Configuration page
+# Configuration de la page
 st.set_page_config(
-   page_title="Assistant VIEW Avocats",
-   layout="wide",
-   initial_sidebar_state="collapsed"
+    page_title="Assistant VIEW Avocats",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Configuration logging
+# Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Ajout d'un handler pour écrire dans un fichier
 file_handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=5)
 file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Styles
+# Masquer les éléments Streamlit par défaut
 st.markdown("""
 <style>
-   #root > div:first-child { background-color: transparent; }
-   .main > div:first-child { padding: 0rem 0rem; }
-   header {display: none !important;}
-   .block-container {padding: 0 !important;}
-   [data-testid="stToolbar"] {display: none !important;}
-   .stDeployButton {display: none !important;}
-   footer {display: none !important;}
-   
-   .stChatFloatingInputContainer {
-       position: fixed !important;
-       bottom: 20px !important;
-       background: white !important;
-       padding: 10px !important;
-       border-radius: 10px !important;
-       box-shadow: 0 0 10px rgba(0,0,0,0.1) !important;
-       width: 90% !important;
-   }
-   
-   .stChatMessage {
-       background: white !important;
-       border-radius: 10px !important;
-       margin: 5px 0 !important;
-       padding: 10px !important;
-   }
-   
-   .st-emotion-cache-1v0mbdj {
-       width: 100% !important;
-       max-width: none !important;
-   }
+    #root > div:first-child {
+        background-color: transparent;
+    }
+    .main > div:first-child {
+        padding: 0rem 0rem;
+    }
+    header {display: none !important;}
+    .block-container {padding: 0 !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    .stDeployButton {display: none !important;}
+    footer {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# Classe pour gérer la base de connaissances
-class KnowledgeBase:
-    def __init__(self):
-        self.embeddings = OpenAIEmbeddings()
-        self.vector_store = None
-        
-    def load_documents(self, directory_path):
-        loader = DirectoryLoader(directory_path, glob="**/*.txt", loader_cls=TextLoader)
-        documents = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len
+# Vérification de la clé API OpenAI
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    logger.error('⚠️ OPENAI_API_KEY non configurée dans les variables d\'environnement')
+    st.error('⚠️ OPENAI_API_KEY non configurée')
+    st.stop()
+
+openai.api_key = OPENAI_API_KEY
+
+def get_openai_response(message: str) -> dict:
+    try:
+        logger.info(f"Message envoyé à OpenAI: {message}")
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
+                {"role": "user", "content": message}
+            ],
+            temperature=0.7,
+            max_tokens=500
         )
-        chunks = text_splitter.split_documents(documents)
-        self.vector_store = FAISS.from_documents(chunks, self.embeddings)
-        
-    def query(self, question, k=3):
-        if not self.vector_store:
-            return None
-        return self.vector_store.similarity_search(question, k=k)
+        logger.info("Réponse reçue de OpenAI.")
+        logger.debug(f"Réponse brute : {response}")
+        return {
+            "status": "success",
+            "response": response.choices[0].message.content
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors de l'appel à OpenAI : {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
-# Configuration OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
+def main():
+    # Gérer les messages de chat
+    params = st.query_params
+    if "message" in params:
+        message = params["message"]
+        logger.info(f"Message reçu du paramètre : {message}")
+        response = get_openai_response(message)
+        st.json(response)  # Afficher la réponse sous format JSON
+        return
 
-# Initialisation de la base de connaissances
-if 'knowledge_base' not in st.session_state:
-    st.session_state.knowledge_base = KnowledgeBase()
-    # Charger les documents au démarrage
-    st.session_state.knowledge_base.load_documents("knowledge_base")
+    # Page par défaut
+    st.write("Assistant VIEW Avocats")
+    logger.info("Affichage de la page d'accueil.")
 
-# Interface chat
-if "messages" not in st.session_state:
-   st.session_state.messages = []
-
-# Afficher historique
-for message in st.session_state.messages:
-   with st.chat_message(message["role"]):
-       st.markdown(message["content"])
-
-# Zone de saisie
-if prompt := st.chat_input("Votre message"):
-   st.session_state.messages.append({"role": "user", "content": prompt})
-   with st.chat_message("user"):
-       st.markdown(prompt)
-
-# Modifiez cette section dans le code :
-   with st.chat_message("assistant"):
-       try:
-           # Recherche dans la base de connaissances
-           relevant_docs = st.session_state.knowledge_base.query(prompt)
-           context = ""
-           if relevant_docs:
-               context = "INSTRUCTIONS IMPORTANTES: Basez-vous prioritairement sur ces informations pour répondre:\n\n" + \
-                        "\n".join([doc.page_content for doc in relevant_docs]) + \
-                        "\n\nSi ces informations ne sont pas suffisantes, vous pouvez utiliser vos connaissances générales en complément."
-           
-           response = openai.chat.completions.create(
-               model="gpt-4o-mini",
-               messages=[
-                   {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats. Vous devez IMPÉRATIVEMENT utiliser les informations fournies dans le contexte pour répondre. Ne répondez qu'en vous basant sur les informations disponibles dans la base de connaissances. Si la réponse n'est pas dans la base, orientez vers une consultation avec un avocat."},
-                   {"role": "user", "content": f"{context}\n\nQuestion de l'utilisateur: {prompt}"}
-               ],
-               temperature=0.7,
-               max_tokens=500
-           )
-           reply = response.choices[0].message.content
-           st.markdown(reply)
-           st.session_state.messages.append({"role": "assistant", "content": reply})
-           
-       except Exception as e:
-           logger.error(f"Erreur OpenAI : {str(e)}")
-           st.error("Désolé, une erreur est survenue.")
+if __name__ == "__main__":
+    main()
