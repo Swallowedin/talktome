@@ -76,7 +76,7 @@ def get_openai_response(message: str, context: str = "") -> dict:
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system", 
