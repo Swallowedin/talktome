@@ -3,10 +3,10 @@ import openai
 import os
 import logging
 from logging.handlers import RotatingFileHandler
-from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
 # Configuration page
 st.set_page_config(
@@ -58,14 +58,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Classe pour gérer la base de connaissances
 class KnowledgeBase:
     def __init__(self):
         self.embeddings = OpenAIEmbeddings()
         self.vector_store = None
         
-    def load_documents(self, directory_path):
-        loader = DirectoryLoader(directory_path, glob="**/*.txt", loader_cls=TextLoader)
+    def load_documents(self, file_path):
+        loader = TextLoader(file_path)
         documents = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -86,8 +85,7 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 # Initialisation de la base de connaissances
 if 'knowledge_base' not in st.session_state:
     st.session_state.knowledge_base = KnowledgeBase()
-    # Charger les documents au démarrage
-    st.session_state.knowledge_base.load_documents("knowledge_base")
+    st.session_state.knowledge_base.load_documents("knowledge_base.txt")
 
 # Interface chat
 if "messages" not in st.session_state:
@@ -104,7 +102,7 @@ if prompt := st.chat_input("Votre message"):
    with st.chat_message("user"):
        st.markdown(prompt)
 
-# Modifiez cette section dans le code :
+   # Réponse assistant
    with st.chat_message("assistant"):
        try:
            # Recherche dans la base de connaissances
