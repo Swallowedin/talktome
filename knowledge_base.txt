@@ -29,13 +29,15 @@ Nos avocats sont spécialisés et formés continuellement pour vous offrir un ac
 
 // prise_rdv.txt
 Pour prendre rendez-vous :
-- Téléphone : [votre numéro]
-- Email : [votre email]
-- Via le formulaire sur notre site
+- Téléphone : 03 76 04 21 93
+- Email : contact@view-avocats.fr
+- Adresse : 274 ter avenue de la Marne – Château rouge, Woodpark, Bât. D 59700 MARCQ-EN-BAROEUL
+- Via le formulaire sur notre site : https://view-avocats.fr/#contact
 Nos assistantes vous répondront dans les plus brefs délais pour fixer un rendez-vous avec l'avocat approprié.
 
 // honoraires.txt
-Nos honoraires sont déterminés selon :
+Le cabinet met à votre disposition gratuitement un outil d'estimation du prix de nos prestations. Vous pouvez y accéder ici : https://view-avocats.fr/estimia-calculateur-gratuit-de-frais-davocat/
+Nos honoraires sont déterminés conformément à notre déontologie selon :
 - La complexité du dossier
 - Le temps nécessaire
 - L'urgence
