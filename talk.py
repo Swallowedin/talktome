@@ -3,6 +3,10 @@ import openai
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
 
 # Configuration page
 st.set_page_config(
@@ -54,11 +58,38 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Classe pour gérer la base de connaissances
+class KnowledgeBase:
+    def __init__(self):
+        self.embeddings = OpenAIEmbeddings()
+        self.vector_store = None
+        
+    def load_documents(self, directory_path):
+        loader = DirectoryLoader(directory_path, glob="**/*.txt", loader_cls=TextLoader)
+        documents = loader.load()
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len
+        )
+        chunks = text_splitter.split_documents(documents)
+        self.vector_store = FAISS.from_documents(chunks, self.embeddings)
+        
+    def query(self, question, k=3):
+        if not self.vector_store:
+            return None
+        return self.vector_store.similarity_search(question, k=k)
+
 # Configuration OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
+# Initialisation de la base de connaissances
+if 'knowledge_base' not in st.session_state:
+    st.session_state.knowledge_base = KnowledgeBase()
+    # Charger les documents au démarrage
+    st.session_state.knowledge_base.load_documents("knowledge_base")
+
 # Interface chat
-# st.title("Assistant VIEW Avocats")
 if "messages" not in st.session_state:
    st.session_state.messages = []
 
@@ -76,11 +107,18 @@ if prompt := st.chat_input("Votre message"):
    # Réponse assistant
    with st.chat_message("assistant"):
        try:
+           # Recherche dans la base de connaissances
+           relevant_docs = st.session_state.knowledge_base.query(prompt)
+           context = ""
+           if relevant_docs:
+               context = "Information pertinente trouvée dans la base de connaissances:\n" + \
+                        "\n".join([doc.page_content for doc in relevant_docs]) + "\n\n"
+           
            response = openai.chat.completions.create(
                model="gpt-4o-mini",
                messages=[
                    {"role": "system", "content": "Vous êtes l'assistant virtuel du cabinet VIEW Avocats."},
-                   *st.session_state.messages
+                   {"role": "user", "content": context + prompt}
                ],
                temperature=0.7,
                max_tokens=500
