@@ -4,12 +4,7 @@ import json
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
 from typing import Optional, List
-import tiktoken
 
 # Configuration de la page
 st.set_page_config(
@@ -59,75 +54,29 @@ st.markdown("""
     .stTextInput {
         border-radius: 20px;
     }
-    
-    .error-message {
-        color: red;
-        padding: 10px;
-        border-radius: 5px;
-        margin: 10px 0;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-class KnowledgeBase:
-    def __init__(self):
-        try:
-            api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY n'est pas configurée")
-            
-            self.embeddings = OpenAIEmbeddings(
-                openai_api_key=api_key,
-                model="text-embedding-ada-002"  # Spécifier explicitement le modèle
-            )
-            self.vector_store = None
-            logger.info("KnowledgeBase initialisée avec succès")
-        except Exception as e:
-            logger.error(f"Erreur lors de l'initialisation de KnowledgeBase: {str(e)}")
-            raise
-    
-    def load_documents(self, file_path: str) -> bool:
-        try:
-            if not os.path.exists(file_path):
-                logger.error(f"Le fichier {file_path} n'existe pas")
-                return False
-                
-            loader = TextLoader(file_path)
-            documents = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                length_function=len
-            )
-            chunks = text_splitter.split_documents(documents)
-            
-            # Vérification que chunks n'est pas vide
-            if not chunks:
-                logger.error("Aucun chunk de texte n'a été généré")
-                return False
-                
-            self.vector_store = FAISS.from_documents(chunks, self.embeddings)
-            logger.info("Documents chargés avec succès")
-            return True
-        except Exception as e:
-            logger.error(f"Erreur lors du chargement des documents: {str(e)}")
-            return False
-    
-    def query(self, question: str, k: int = 3) -> Optional[List[str]]:
-        try:
-            if not self.vector_store:
-                logger.error("Vector store non initialisé")
-                return None
-            return self.vector_store.similarity_search(question, k=k)
-        except Exception as e:
-            logger.error(f"Erreur lors de la recherche: {str(e)}")
+def load_knowledge_base(file_path: str) -> Optional[str]:
+    """Charge le contenu de la base de connaissances depuis un fichier texte"""
+    try:
+        if not os.path.exists(file_path):
+            logger.error(f"Le fichier {file_path} n'existe pas")
             return None
+        
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return content
+    except Exception as e:
+        logger.error(f"Erreur lors du chargement de la base de connaissances: {str(e)}")
+        return None
 
 def get_openai_response(message: str, context: str = "") -> dict:
+    """Obtient une réponse d'OpenAI"""
     try:
         logger.info(f"Message envoyé à OpenAI: {message}")
         response = openai.chat.completions.create(
-            model="gpt-4",  # Modifié pour utiliser gpt-4 au lieu de gpt-4o-mini
+            model="gpt-4",
             messages=[
                 {
                     "role": "system", 
@@ -151,6 +100,7 @@ def get_openai_response(message: str, context: str = "") -> dict:
         }
 
 def display_question_box():
+    """Affiche la boîte de questions"""
     with st.container():
         st.markdown('<div class="question-box">', unsafe_allow_html=True)
         
@@ -181,19 +131,6 @@ def display_question_box():
         st.markdown('</div>', unsafe_allow_html=True)
         return None
 
-def initialize_knowledge_base():
-    try:
-        if 'knowledge_base' not in st.session_state:
-            st.session_state.knowledge_base = KnowledgeBase()
-            success = st.session_state.knowledge_base.load_documents("knowledge_base.txt")
-            if not success:
-                raise Exception("Échec du chargement de la base de connaissances")
-        return True
-    except Exception as e:
-        logger.error(f"Erreur d'initialisation: {str(e)}")
-        st.error(f"Erreur lors de l'initialisation du système. Veuillez réessayer plus tard.")
-        return False
-
 def main():
     st.title("Assistant VIEW Avocats")
     
@@ -202,8 +139,10 @@ def main():
         st.error("La clé API OpenAI n'est pas configurée. Veuillez configurer la variable d'environnement OPENAI_API_KEY.")
         return
     
-    # Initialisation de la base de connaissances
-    if not initialize_knowledge_base():
+    # Chargement de la base de connaissances
+    knowledge_base_content = load_knowledge_base("knowledge_base.txt")
+    if knowledge_base_content is None:
+        st.error("Erreur lors du chargement de la base de connaissances")
         return
     
     # Initialisation de l'historique des messages
@@ -218,14 +157,8 @@ def main():
         st.session_state.messages.append({"role": "user", "content": question})
         
         try:
-            # Recherche dans la base de connaissances
-            relevant_docs = st.session_state.knowledge_base.query(question)
-            context = ""
-            if relevant_docs:
-                context = "\n".join([doc.page_content for doc in relevant_docs])
-            
-            # Obtention de la réponse
-            response = get_openai_response(question, context)
+            # Obtention de la réponse avec le contexte de la base de connaissances
+            response = get_openai_response(question, knowledge_base_content)
             
             if response["status"] == "success":
                 st.session_state.messages.append({"role": "assistant", "content": response["response"]})
