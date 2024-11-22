@@ -132,7 +132,7 @@ def display_question_box():
         return None
 
 def main():
-    st.title("Assistant VIEW Avocats")
+    # Suppression du titre st.title()
     
     # Vérification de la clé API
     if not os.getenv('OPENAI_API_KEY'):
