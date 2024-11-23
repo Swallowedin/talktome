@@ -6,76 +6,100 @@ import os
 from logging.handlers import RotatingFileHandler
 from typing import Optional, List
 
-# Configuration minimale
+# Configuration de la page
 st.set_page_config(
     page_title="Assistant VIEW Avocats",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-    menu_items={},
+    layout="centered",  # Centré pour une meilleure présentation
+    initial_sidebar_state="collapsed"
 )
 
-# Logging configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-file_handler = RotatingFileHandler('app.log', maxBytes=10000, backupCount=5)
-file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-# Style ultra-minimal
+# Style élégant et professionnel
 st.markdown("""
 <style>
-    /* Cacher tous les éléments Streamlit */
-    header, footer, [data-testid="stToolbar"], .stDeployButton, #MainMenu {
-        display: none !important;
+    /* Style général */
+    .main {
+        background-color: #ffffff;
     }
     
-    /* Reset complet des marges et paddings */
-    .main, .block-container, .element-container {
-        margin: 0 !important;
-        padding: 0 !important;
-        max-width: 100% !important;
+    /* Style des conteneurs */
+    .element-container {
+        padding: 0.5rem 0;
     }
     
-    .reportview-container {
-        margin: 0 !important;
-        padding: 0 !important;
-        background-color: transparent !important;
+    /* Style du selectbox */
+    .stSelectbox > div > div {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: white;
+        padding: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
     }
     
-    .css-1y4p8pa {
-        margin: 0 !important;
-        padding: 0 !important;
+    .stSelectbox > div > div:hover {
+        border-color: #1D4E44;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    .css-1r6slb0, .css-qrbaxs {
-        padding: 0 !important;
-        margin: 0 !important;
-        background-color: transparent !important;
-    }
-
-    /* Styles minimaux pour les inputs */
-    .stSelectbox > div > div, .stTextInput > div > div > input {
-        padding: 8px !important;
-        border: 1px solid #e0e0e0 !important;
-        margin: 2px 0 !important;
+    /* Style du champ texte */
+    .stTextInput > div > div > input {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
     }
     
-    /* Style minimal du bouton */
+    .stTextInput > div > div > input:focus {
+        border-color: #1D4E44;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    /* Style du bouton */
     .stButton > button {
-        background-color: #1D4E44 !important;
-        color: white !important;
-        border: none !important;
-        margin: 2px 0 !important;
-        padding: 8px !important;
+        background-color: #1D4E44;
+        color: white;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
     }
-
-    /* Style minimal des messages */
+    
+    .stButton > button:hover {
+        background-color: #2a6d5f;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+    
+    /* Style des messages du chat */
     .stChatMessage {
-        padding: 8px !important;
-        margin: 2px 0 !important;
-        border: 1px solid #e0e0e0 !important;
+        background-color: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+    }
+    
+    /* Style des messages utilisateur */
+    .stChatMessage[data-testid="user-message"] {
+        background-color: #f8f9fa;
+    }
+    
+    /* Style des messages assistant */
+    .stChatMessage[data-testid="assistant-message"] {
+        background-color: #f1f8f6;
+        border-left: 3px solid #1D4E44;
+    }
+    
+    /* Style des labels */
+    .stSelectbox label, .stTextInput label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 0.3rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -125,7 +149,7 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Interface minimale
+    # Interface élégante
     questions_predefinies = [
         "Quels sont vos domaines d'expertise ?",
         "Comment prendre rendez-vous ?",
@@ -133,16 +157,16 @@ def main():
         "Où se trouve votre cabinet ?"
     ]
     
+    st.markdown("##### Posez votre question")
+    
     selected_question = st.selectbox(
-        "",
-        [""] + questions_predefinies,
-        label_visibility="collapsed"
+        "Choisissez une question fréquente",
+        [""] + questions_predefinies
     )
     
     custom_question = st.text_input(
-        "",
-        placeholder="Ou posez votre propre question",
-        label_visibility="collapsed"
+        "Ou écrivez votre propre question",
+        placeholder="Tapez votre question ici..."
     )
     
     if st.button("Envoyer"):
@@ -158,10 +182,12 @@ def main():
             except Exception as e:
                 logger.error(f"Erreur de traitement: {str(e)}")
     
-    # Messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    # Affichage des messages avec style
+    if st.session_state.messages:
+        st.markdown("---")
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
 if __name__ == "__main__":
     main()
