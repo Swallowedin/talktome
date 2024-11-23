@@ -138,7 +138,7 @@ def get_openai_response(message: str, context: str = "") -> dict:
         }
 
 def display_question_box():
-    """Affiche la zone de questions de manière minimale"""
+    """Affiche la zone de questions sans titre"""
     questions_predefinies = [
         "Quels sont vos domaines d'expertise ?",
         "Comment prendre rendez-vous ?",
@@ -146,25 +146,25 @@ def display_question_box():
         "Où se trouve votre cabinet ?"
     ]
     
-    with st.container():
-        selected_question = st.selectbox(
-            "Questions fréquentes",
-            [""] + questions_predefinies,
-            index=0,
-            key="preset_questions",
-            label_visibility="collapsed"
-        )
-        
-        custom_question = st.text_input(
-            "Votre question",
-            key="custom_question",
-            placeholder="Ou posez votre propre question"
-        )
-        
-        if st.button("Envoyer", key="send_button"):
-            question = custom_question if custom_question else selected_question
-            if question:
-                return question
+    selected_question = st.selectbox(
+        "",  # Label vide pour supprimer le titre
+        [""] + questions_predefinies,
+        index=0,
+        key="preset_questions",
+        label_visibility="collapsed"  # Masque complètement le label
+    )
+    
+    custom_question = st.text_input(
+        "",  # Label vide
+        key="custom_question",
+        placeholder="Ou posez votre propre question",
+        label_visibility="collapsed"  # Masque complètement le label
+    )
+    
+    if st.button("Envoyer", key="send_button"):
+        question = custom_question if custom_question else selected_question
+        if question:
+            return question
     return None
 
 def main():
@@ -183,7 +183,7 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Zone de questions
+    # Zone de questions (sans titre)
     question = display_question_box()
     
     # Traitement de la question
