@@ -1,20 +1,17 @@
-[browser]
-serverAddress = "talktomeview.streamlit.app"
-serverPort = 8501
-gatherUsageStats = false
+[theme]
+base = "light"
+primaryColor = "#1D4E44"
 
 [server]
-enableCORS = true
 enableXsrfProtection = false
+enableCORS = true
 
-[theme]
-base="light"
-
-[client]
-toolbarMode = "minimal"
+[browser]
+gatherUsageStats = false
 
 [runner]
-fastReruns = true
+magicEnabled = false
 
-[logger]
-level = "debug"
+[client]
+showErrorDetails = false
+toolbarMode = "minimal"
