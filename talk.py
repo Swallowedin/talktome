@@ -22,54 +22,92 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Styles personnalisés
+# Styles personnalisés avec design minimal
 st.markdown("""
 <style>
+    /* Reset complet des styles par défaut */
     #root > div:first-child {
         background-color: transparent;
     }
+    .main {
+        padding: 0 !important;
+    }
     .main > div:first-child {
-        padding: 0rem 0rem;
+        padding: 0 !important;
     }
     header {display: none !important;}
-    .block-container {padding: 0 !important;}
+    footer {display: none !important;}
+    .block-container {
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
-    footer {display: none !important;}
     
-    .question-box {
-        background-color: white;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 20px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Style des éléments de formulaire */
+    .stSelectbox [data-testid="stMarkdown"] {
+        padding: 0 !important;
+        margin-bottom: 5px !important;
+    }
+    .stSelectbox > div > div {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    .stSelectbox > div {
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        background: white !important;
     }
     
-    .chat-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
+    /* Style du champ de texte */
+    .stTextInput > div > div > input {
+        border: 1px solid #e0e0e0 !important;
+        background: white !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
     }
     
-    .stTextInput {
-        border-radius: 20px;
+    /* Style du bouton */
+    .stButton > button {
+        background-color: #1D4E44 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
+        margin: 10px 0 !important;
+        width: auto !important;
+    }
+    
+    /* Style des messages */
+    .stChatMessage {
+        background: white !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
+        margin: 5px 0 !important;
+        box-shadow: none !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    /* Conteneur des questions */
+    .question-container {
+        padding: 10px 0;
+    }
+    
+    /* Labels des inputs */
+    .stSelectbox label, .stTextInput label {
+        font-size: 14px !important;
+        color: #666 !important;
+        margin-bottom: 4px !important;
+    }
+    
+    /* Espacement général */
+    .element-container {
+        margin: 0 !important;
+        padding: 2px 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
-
-def load_knowledge_base(file_path: str) -> Optional[str]:
-    """Charge le contenu de la base de connaissances depuis un fichier texte"""
-    try:
-        if not os.path.exists(file_path):
-            logger.error(f"Le fichier {file_path} n'existe pas")
-            return None
-        
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
-        return content
-    except Exception as e:
-        logger.error(f"Erreur lors du chargement de la base de connaissances: {str(e)}")
-        return None
 
 def get_openai_response(message: str, context: str = "") -> dict:
     """Obtient une réponse d'OpenAI"""
@@ -100,81 +138,70 @@ def get_openai_response(message: str, context: str = "") -> dict:
         }
 
 def display_question_box():
-    """Affiche la boîte de questions"""
+    """Affiche la zone de questions de manière minimale"""
+    questions_predefinies = [
+        "Quels sont vos domaines d'expertise ?",
+        "Comment prendre rendez-vous ?",
+        "Quels sont vos tarifs ?",
+        "Où se trouve votre cabinet ?"
+    ]
+    
     with st.container():
-        st.markdown('<div class="question-box">', unsafe_allow_html=True)
-        
-        questions_predefinies = [
-            "Quels sont vos domaines d'expertise ?",
-            "Comment prendre rendez-vous ?",
-            "Quels sont vos tarifs ?",
-            "Où se trouve votre cabinet ?"
-        ]
-        
         selected_question = st.selectbox(
             "Questions fréquentes",
             [""] + questions_predefinies,
             index=0,
-            key="preset_questions"
+            key="preset_questions",
+            label_visibility="collapsed"
         )
         
         custom_question = st.text_input(
-            "Ou posez votre propre question",
-            key="custom_question"
+            "Votre question",
+            key="custom_question",
+            placeholder="Ou posez votre propre question"
         )
         
         if st.button("Envoyer", key="send_button"):
             question = custom_question if custom_question else selected_question
             if question:
                 return question
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        return None
+    return None
 
 def main():
-    # Suppression du titre st.title()
-    
     # Vérification de la clé API
     if not os.getenv('OPENAI_API_KEY'):
-        st.error("La clé API OpenAI n'est pas configurée. Veuillez configurer la variable d'environnement OPENAI_API_KEY.")
+        logger.error("Clé API OpenAI manquante")
         return
     
     # Chargement de la base de connaissances
     knowledge_base_content = load_knowledge_base("knowledge_base.txt")
     if knowledge_base_content is None:
-        st.error("Erreur lors du chargement de la base de connaissances")
+        logger.error("Erreur base de connaissances")
         return
     
-    # Initialisation de l'historique des messages
+    # Initialisation de l'historique
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Affichage de la box de questions
+    # Zone de questions
     question = display_question_box()
     
     # Traitement de la question
     if question:
         st.session_state.messages.append({"role": "user", "content": question})
-        
         try:
-            # Obtention de la réponse avec le contexte de la base de connaissances
             response = get_openai_response(question, knowledge_base_content)
-            
             if response["status"] == "success":
                 st.session_state.messages.append({"role": "assistant", "content": response["response"]})
             else:
-                st.error("Désolé, une erreur est survenue lors du traitement de votre demande.")
                 logger.error(f"Erreur de réponse: {response.get('message', 'Unknown error')}")
-        
         except Exception as e:
-            st.error("Une erreur est survenue lors du traitement de votre question.")
-            logger.error(f"Erreur lors du traitement de la question: {str(e)}")
+            logger.error(f"Erreur de traitement: {str(e)}")
     
-    # Affichage de l'historique des messages
-    with st.container():
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
+    # Affichage des messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
 
 if __name__ == "__main__":
     main()
