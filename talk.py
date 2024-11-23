@@ -22,10 +22,10 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Styles personnalisés avec design minimal
+# Styles personnalisés avec header discret
 st.markdown("""
 <style>
-    /* Reset complet des styles par défaut */
+    /* Reset et base */
     #root > div:first-child {
         background-color: transparent;
     }
@@ -36,36 +36,49 @@ st.markdown("""
         padding: 0 !important;
     }
     header {display: none !important;}
-    footer {display: none !important;}
-    .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-    }
+    .block-container {padding: 0 !important;}
     [data-testid="stToolbar"] {display: none !important;}
     .stDeployButton {display: none !important;}
+    footer {display: none !important;}
     
-    /* Style des éléments de formulaire */
-    .stSelectbox [data-testid="stMarkdown"] {
-        padding: 0 !important;
-        margin-bottom: 5px !important;
+    /* Style du header discret */
+    h1 {
+        font-size: 14px !important;
+        color: #666666 !important;
+        padding: 8px 12px !important;
+        margin: 0 !important;
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #e0e0e0 !important;
+        font-weight: 500 !important;
+        text-align: center !important;
     }
+    
+    /* Style des conteneurs */
+    .element-container {
+        margin: 0 !important;
+        padding: 3px 0 !important;
+    }
+    
+    /* Style des sélecteurs */
     .stSelectbox > div > div {
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-    .stSelectbox > div {
         border: 1px solid #e0e0e0 !important;
-        border-radius: 8px !important;
+        border-radius: 5px !important;
+        min-height: 36px !important;
         background: white !important;
     }
     
-    /* Style du champ de texte */
+    .stSelectbox [data-testid="stMarkdown"] {
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    
+    /* Style du champ texte */
     .stTextInput > div > div > input {
         border: 1px solid #e0e0e0 !important;
-        background: white !important;
-        border-radius: 8px !important;
+        border-radius: 5px !important;
         padding: 8px 12px !important;
+        height: 36px !important;
+        background: white !important;
     }
     
     /* Style du bouton */
@@ -73,41 +86,49 @@ st.markdown("""
         background-color: #1D4E44 !important;
         color: white !important;
         border: none !important;
-        border-radius: 8px !important;
-        padding: 8px 16px !important;
-        margin: 10px 0 !important;
+        border-radius: 5px !important;
+        padding: 6px 12px !important;
+        height: 36px !important;
         width: auto !important;
+        margin: 5px 0 !important;
+        cursor: pointer !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: #2a6d5f !important;
     }
     
     /* Style des messages */
     .stChatMessage {
-        background: white !important;
-        border-radius: 8px !important;
-        padding: 10px !important;
+        background-color: white !important;
+        border-radius: 5px !important;
         margin: 5px 0 !important;
-        box-shadow: none !important;
+        padding: 8px 12px !important;
         border: 1px solid #e0e0e0 !important;
     }
     
-    /* Conteneur des questions */
-    .question-container {
-        padding: 10px 0;
-    }
-    
-    /* Labels des inputs */
+    /* Style des labels */
     .stSelectbox label, .stTextInput label {
-        font-size: 14px !important;
+        font-size: 13px !important;
         color: #666 !important;
-        margin-bottom: 4px !important;
-    }
-    
-    /* Espacement général */
-    .element-container {
-        margin: 0 !important;
-        padding: 2px 0 !important;
+        padding-bottom: 2px !important;
     }
 </style>
 """, unsafe_allow_html=True)
+
+def load_knowledge_base(file_path: str) -> Optional[str]:
+    """Charge le contenu de la base de connaissances depuis un fichier texte"""
+    try:
+        if not os.path.exists(file_path):
+            logger.error(f"Le fichier {file_path} n'existe pas")
+            return None
+        
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return content
+    except Exception as e:
+        logger.error(f"Erreur lors du chargement de la base de connaissances: {str(e)}")
+        return None
 
 def get_openai_response(message: str, context: str = "") -> dict:
     """Obtient une réponse d'OpenAI"""
@@ -138,7 +159,7 @@ def get_openai_response(message: str, context: str = "") -> dict:
         }
 
 def display_question_box():
-    """Affiche la zone de questions sans titre"""
+    """Affiche la zone de questions"""
     questions_predefinies = [
         "Quels sont vos domaines d'expertise ?",
         "Comment prendre rendez-vous ?",
@@ -146,28 +167,30 @@ def display_question_box():
         "Où se trouve votre cabinet ?"
     ]
     
-    selected_question = st.selectbox(
-        "",  # Label vide pour supprimer le titre
-        [""] + questions_predefinies,
-        index=0,
-        key="preset_questions",
-        label_visibility="collapsed"  # Masque complètement le label
-    )
-    
-    custom_question = st.text_input(
-        "",  # Label vide
-        key="custom_question",
-        placeholder="Ou posez votre propre question",
-        label_visibility="collapsed"  # Masque complètement le label
-    )
-    
-    if st.button("Envoyer", key="send_button"):
-        question = custom_question if custom_question else selected_question
-        if question:
-            return question
-    return None
+    with st.container():
+        selected_question = st.selectbox(
+            "Questions fréquentes",
+            [""] + questions_predefinies,
+            index=0,
+            key="preset_questions"
+        )
+        
+        custom_question = st.text_input(
+            "Ou posez votre propre question",
+            key="custom_question"
+        )
+        
+        if st.button("Envoyer", key="send_button"):
+            question = custom_question if custom_question else selected_question
+            if question:
+                return question
+        
+        return None
 
 def main():
+    # Header discret
+    st.markdown("<h1>Assistant VIEW Avocats</h1>", unsafe_allow_html=True)
+    
     # Vérification de la clé API
     if not os.getenv('OPENAI_API_KEY'):
         logger.error("Clé API OpenAI manquante")
@@ -183,7 +206,7 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
-    # Zone de questions (sans titre)
+    # Zone de questions
     question = display_question_box()
     
     # Traitement de la question
