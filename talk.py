@@ -7,7 +7,12 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional, List
 
 # Configuration minimale
-st.set_page_config(page_title="Assistant VIEW Avocats", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Assistant VIEW Avocats",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    menu_items={},
+)
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
@@ -18,29 +23,59 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Style minimal
+# Style ultra-minimal
 st.markdown("""
 <style>
-    /* Cacher tous les éléments non essentiels */
+    /* Cacher tous les éléments Streamlit */
     header, footer, [data-testid="stToolbar"], .stDeployButton, #MainMenu {
         display: none !important;
     }
     
-    /* Reset des marges et paddings */
+    /* Reset complet des marges et paddings */
     .main, .block-container, .element-container {
-        padding: 0 !important;
         margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
     }
     
-    /* Ajustement du select et input uniquement */
+    .reportview-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: transparent !important;
+    }
+    
+    .css-1y4p8pa {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .css-1r6slb0, .css-qrbaxs {
+        padding: 0 !important;
+        margin: 0 !important;
+        background-color: transparent !important;
+    }
+
+    /* Styles minimaux pour les inputs */
     .stSelectbox > div > div, .stTextInput > div > div > input {
         padding: 8px !important;
         border: 1px solid #e0e0e0 !important;
+        margin: 2px 0 !important;
     }
     
     /* Style minimal du bouton */
     .stButton > button {
-        margin-top: 5px !important;
+        background-color: #1D4E44 !important;
+        color: white !important;
+        border: none !important;
+        margin: 2px 0 !important;
+        padding: 8px !important;
+    }
+
+    /* Style minimal des messages */
+    .stChatMessage {
+        padding: 8px !important;
+        margin: 2px 0 !important;
+        border: 1px solid #e0e0e0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -99,13 +134,13 @@ def main():
     ]
     
     selected_question = st.selectbox(
-        "",  # Label vide
+        "",
         [""] + questions_predefinies,
         label_visibility="collapsed"
     )
     
     custom_question = st.text_input(
-        "",  # Label vide
+        "",
         placeholder="Ou posez votre propre question",
         label_visibility="collapsed"
     )
